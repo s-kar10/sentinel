@@ -1,0 +1,4 @@
+# Development-only binary tools (neither has runtime dependencies).
+# uv compiles portable locks; installing/running Sentinel still uses standard pip.
+ruff==0.14.14
+uv==0.9.26

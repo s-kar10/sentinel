@@ -1,0 +1,17 @@
+[project]
+name = "sentinel-demo-target"
+version = "0.1.0"
+description = "Local intentionally vulnerable Sentinel test fixture"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "fastapi==0.115.12",
+  "pydantic==2.11.4",
+  "uvicorn[standard]==0.34.2",
+]
+
+[project.optional-dependencies]
+test = ["httpx==0.28.1", "pytest==8.3.5"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"

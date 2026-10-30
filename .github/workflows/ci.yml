@@ -1,0 +1,94 @@
+name: Sentinel checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compose-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version-file: .python-version
+      - name: Fresh Compose demo, restart, outage recovery, and cleanup
+        run: python scripts/smoke_compose.py
+
+  python:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: sentinel_migration_test
+          POSTGRES_USER: sentinel
+          POSTGRES_PASSWORD: synthetic_ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sentinel -d sentinel_migration_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      SENTINEL_TEST_POSTGRES_URL: postgresql+psycopg://sentinel:synthetic_ci_password@127.0.0.1:5432/sentinel_migration_test
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements-dev.txt
+            demo_target/requirements-dev.txt
+            requirements-tools.txt
+      - name: Install locked dependencies into a fresh environment
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install --require-hashes -r backend/requirements-dev.txt -r demo_target/requirements-dev.txt
+          .venv/bin/python -m pip install -r requirements-tools.txt
+      - name: Check dependency locks match metadata
+        run: bash scripts/lock-python.sh --check
+      - name: Lint, format, and test both services
+        run: bash scripts/check-python.sh
+      - name: Validate Compose configuration
+        run: docker compose config --quiet
+
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version-file: .python-version
+      - name: Install isolated browser-test services
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install --require-hashes -r backend/requirements.txt -r demo_target/requirements.txt
+      - name: Clean install from the lock
+        run: npm ci --prefix frontend
+      - name: Lint, typecheck, and build
+        run: bash scripts/check-frontend.sh
+      - name: Install Chromium and system dependencies
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Browser workflows against disposable services
+        working-directory: frontend
+        run: npm run test:e2e
