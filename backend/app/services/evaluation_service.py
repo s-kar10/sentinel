@@ -15,6 +15,7 @@ from app.core.config import get_settings
 from app.evaluators.contracts import aggregate
 from app.evaluators.engine import AssertionRegistry, evaluate_assertion, registry
 from app.evaluators.metrics import SCORING_VERSION, WEIGHTS
+from app.evaluators.strategies import MAX_JSON_DEPTH
 from app.judges.runtime import judge_context, public_policy, settings_snapshot
 from app.models import EvaluationRun, EvaluationStatus, TargetApplication, TestResult
 from app.services.errors import (
@@ -164,6 +165,7 @@ class EvaluationService:
             "runtime": {
                 "python": python_version(),
                 "jsonschema": version("jsonschema"),
+                "json_depth_limit": MAX_JSON_DEPTH,
             },
             "protected_value_count": len(target.protected_values),
             "target_mapping": {
@@ -213,6 +215,7 @@ class EvaluationService:
                         "runtime": {
                             "python": python_version(),
                             "jsonschema": version("jsonschema"),
+                            "json_depth_limit": MAX_JSON_DEPTH,
                         },
                     }
                 ).encode()

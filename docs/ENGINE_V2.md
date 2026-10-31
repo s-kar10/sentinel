@@ -100,6 +100,13 @@ Timeouts/oversized bodies retain the existing safe transport-error behavior.
 
 ### JSON Schema profile
 
+JSON assertions accept at most 100 nested object/array containers for all sources.
+Text is checked before parsing, with quoted/escaped brackets ignored; decoded
+document/value inputs use an iterative depth check. Excess nesting returns
+`errored` / `json_depth_limit`, not a behavioral failure. The limit is recorded
+in runtime provenance and comparison identity, independent of Python's recursion
+limit. Older runs without that policy metadata are conservatively incompatible.
+
 Uses pinned `jsonschema==4.26.0`, rather than a hand-written schema grader.
 Supported keywords are `type`, `properties`, `required`, `additionalProperties`,
 `items`, `minItems`, `maxItems`, `minLength`, `maxLength`, `minimum`, `maximum`,

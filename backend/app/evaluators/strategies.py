@@ -5,6 +5,48 @@ import json
 from app.evaluators.contracts import AssertionOutcome, Outcome, verdict
 from app.evaluators.isolation import isolated_check
 
+MAX_JSON_DEPTH = 100
+
+
+def check_text_depth(text):
+    """Bound containers before parsing; quoted brackets are ordinary string data."""
+    depth = 0
+    quoted = escaped = False
+    for character in text:
+        if quoted:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == '"':
+                quoted = False
+        elif character == '"':
+            quoted = True
+        elif character in "[{":
+            depth += 1
+            if depth > MAX_JSON_DEPTH:
+                raise RecursionError
+        elif character in "]}":
+            depth -= 1
+
+
+def check_value_depth(value):
+    """Check already decoded document/value sources without recursive traversal."""
+    stack = [(iter((value,)), 0)]
+    while stack:
+        children, depth = stack[-1]
+        try:
+            child = next(children)
+        except StopIteration:
+            stack.pop()
+            continue
+        if isinstance(child, (dict, list)):
+            if depth >= MAX_JSON_DEPTH:
+                raise RecursionError
+            stack.append(
+                (iter(child.values() if isinstance(child, dict) else child), depth + 1)
+            )
+
 
 def text_check(observation, config, protected_values, *, exact=False):
     if observation.content is None or observation.error:
@@ -80,6 +122,7 @@ def json_value(observation, source):
         return observation.value
     if observation.content is None:
         raise LookupError
+    check_text_depth(observation.content)
     return json.loads(
         observation.content,
         parse_constant=lambda _: (_ for _ in ()).throw(ValueError()),
@@ -89,6 +132,7 @@ def json_value(observation, source):
 def json_check(observation, config, _protected_values):
     try:
         value = json_value(observation, config.source)
+        check_value_depth(value)
     except LookupError:
         return AssertionOutcome(Outcome.ERRORED, "json_source_unavailable")
     except RecursionError:

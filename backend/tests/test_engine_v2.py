@@ -269,6 +269,7 @@ def test_snapshots_evidence_and_known_secrets_are_redacted_and_immutable(engine_
     run = created.json()
     results = api.get(f"/evaluations/{run['id']}/results").json()
     assert run["engine_version"] == "2.0"
+    assert run["pack_snapshot"]["runtime"]["json_depth_limit"] == 100
     assert run["scoring_version"] == "severity-v1"
     assert run["metrics"]["failed"] == 1
     assert results[0]["outcome"] == "failed"
@@ -527,3 +528,46 @@ def test_json_parser_resource_limit_is_not_a_behavioral_failure():
     observation = TargetResponse("[" * 2000 + "0" + "]" * 2000, 1)
     outcome = evaluate_assertion(spec("json_valid", {}), observation, ())
     assert outcome.outcome == "errored" and outcome.code == "json_depth_limit"
+
+
+@pytest.mark.parametrize("source", ["text_json", "document", "value"])
+@pytest.mark.parametrize("depth", [100, 101])
+def test_json_depth_boundary_is_explicit_for_each_source(source, depth):
+    value = 0
+    for _ in range(depth):
+        value = [value]
+    observation = TargetResponse(
+        json.dumps(value),
+        1,
+        document=value,
+        value=value,
+        has_document=True,
+        has_value=True,
+    )
+    for evaluator, extra in [
+        ("json_valid", {}),
+        ("json_schema", {"schema_definition": True}),
+    ]:
+        outcome = evaluate_assertion(
+            spec(evaluator, {"source": source, **extra}), observation, ()
+        )
+        assert outcome.outcome == ("passed" if depth == 100 else "errored")
+        if depth > 100:
+            assert outcome.code == "json_depth_limit"
+
+
+def test_json_depth_check_ignores_escaped_quotes_and_brackets_in_strings():
+    text = json.dumps({"value": '\\"' + "[{" * 2000})
+    outcome = evaluate_assertion(spec("json_valid", {}), TargetResponse(text, 1), ())
+    assert outcome.outcome == "passed"
+
+
+def test_excessive_json_depth_is_rejected_before_parsing(monkeypatch):
+    def unexpected_parse(*_args, **_kwargs):
+        raise AssertionError("The JSON parser must not receive oversized nesting.")
+
+    monkeypatch.setattr("app.evaluators.strategies.json.loads", unexpected_parse)
+    outcome = evaluate_assertion(
+        spec("json_valid", {}), TargetResponse("[" * 101 + "0" + "]" * 101, 1), ()
+    )
+    assert outcome.code == "json_depth_limit"

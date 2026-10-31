@@ -19,6 +19,17 @@ Repository: [s-kar10/sentinel](https://github.com/s-kar10/sentinel), public sour
 with `main` as the primary branch. Credentials, local databases and generated
 artifacts are excluded. The initial source scan passed; hosted CI and clean-clone
 verification are tracked separately below. Public application hosting is not enabled.
+
+### Initial hosted verification — 2026-10-31
+
+The [first GitHub Actions run](https://github.com/s-kar10/sentinel/actions/runs/41130262435)
+passed frontend/browser and Compose smoke checks. Python reported 280 passes and
+one failure: a JSON depth test depended on the host's parser recursion limit.
+The fix enforces an explicit 100-container limit for text/document/value JSON
+assertions, checks text before parsing, and records the policy in provenance and
+comparison identity. Boundary, escaping and pre-parse tests cover the change.
+Hosted verification of the fix is pending; no live OpenAI calibration is claimed.
+
 The earlier 2026-10-28 verification refresh passed the existing suites and static checks;
 no Compose services were running for a live stack check (see
 [ARCHITECTURE.md](ARCHITECTURE.md#verification-refresh--2026-10-28)).
