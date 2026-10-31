@@ -45,8 +45,8 @@ Compose configuration validation does not start any services.
 
 ### PostgreSQL tests
 
-The default backend suite has **251 cases and 30 PostgreSQL skips**. To run all
-**281 cases**, set `SENTINEL_TEST_POSTGRES_URL` to a disposable PostgreSQL 16
+The default backend suite has **259 cases and 30 PostgreSQL skips**. To run all
+**289 cases**, set `SENTINEL_TEST_POSTGRES_URL` to a disposable PostgreSQL 16
 database whose name ends in `_migration_test`, then run the same Python script.
 See [migration verification](MIGRATIONS.md#verification). CI provisions its own
 PostgreSQL service with synthetic credentials and always sets this variable.
@@ -211,11 +211,11 @@ version files, fresh installs, the shared commands above, and PostgreSQL 16.
 Actions are pinned to commit IDs and the workflow has read-only repository
 permissions. No deployment or credentials for external targets are involved.
 
-This workspace has no Git metadata/remote. The workflow has been configured and
-its commands exercised locally; a hosted GitHub run is still pending creation of
-the actual repository. The frontend job now installs isolated Python services and
-Chromium, then runs the same browser suite. No hosted CI, coverage percentage, or
-production readiness claim follows from local checks.
+The public repository is [s-kar10/sentinel](https://github.com/s-kar10/sentinel).
+[Hosted checks](https://github.com/s-kar10/sentinel/actions/workflows/ci.yml) run
+from fresh checkouts. The frontend job installs isolated Python services and
+Chromium, then runs the browser suite. See the roadmap for recorded run results.
+Passing CI does not establish production readiness or a coverage percentage.
 
 Known dependency maintenance items:
 

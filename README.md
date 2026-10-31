@@ -17,8 +17,8 @@ historical comparisons, and optional OpenAI rubric-based judging. Live OpenAI
 calibration is deferred at the user's request; controlled HTTP fixtures verify
 the integration. See the [roadmap](docs/ROADMAP.md) for verification
 counts and remaining phases. The demo still produces eight results: four passes,
-four failures, original score 50%. Hosted CI and clean-clone onboarding remain
-pending hosted CI and clean-clone verification.
+four failures, original score 50%. GitHub Actions runs Python, browser and Docker
+integration checks from fresh checkouts; see the status badge above.
 
 ## For reviewers
 
@@ -34,9 +34,9 @@ pipeline. Neither the application nor the demo is intended for public hosting ye
   [completed work versus remaining work](docs/ROADMAP.md).
 - **Boundaries:** [security risks and deployment limitations](docs/SECURITY.md).
 
-The documented local checks cover 281 backend tests, 13 demo tests and 16 Chromium
-workflows. Hosted CI and live OpenAI calibration are separate verification steps;
-their status is recorded in the roadmap.
+The test suite covers 289 backend cases, 13 demo tests and 16 Chromium workflows.
+Verification results and the deferred live OpenAI calibration are recorded in the
+roadmap.
 
 Project documentation:
 
@@ -130,9 +130,11 @@ sentinel/
 
 ## Run the complete application
 
-Prerequisites are Docker Engine (or Docker Desktop) and Docker Compose v2.
+Prerequisites are Git, Docker Engine (or Docker Desktop) and Docker Compose v2.
 
 ```bash
+git clone https://github.com/s-kar10/sentinel.git
+cd sentinel
 docker compose up --build --wait
 ```
 
@@ -456,9 +458,9 @@ protected-value detection, scoring, failed target calls, and persisted run creat
 Demo tests lock down its intentionally vulnerable behavior and validation contract.
 
 Backend tests now use migration-created SQLite databases. Without
-`SENTINEL_TEST_POSTGRES_URL`, the default suite runs 251 tests and explicitly skips
+`SENTINEL_TEST_POSTGRES_URL`, the default suite runs 259 tests and explicitly skips
 30 PostgreSQL cases. See [migration verification](docs/MIGRATIONS.md#verification)
-to run all 281 cases against a disposable PostgreSQL database. For native API
+to run all 289 cases against a disposable PostgreSQL database. For native API
 startup, run `python -m app.database.migrations upgrade` from `backend` using the
 same virtual environment and database settings as the API first.
 
@@ -527,8 +529,8 @@ report, shows a warning, and retries while the run remains pending/running.
 Follow the [phased roadmap](docs/ROADMAP.md). Evaluation preconditions/path errors
 are corrected, Alembic migrations are implemented, and reproducible checks/CI are
 configured. Compose and core browser workflows now have automated tests. Phase 0's
-implementation tasks are locally verified; clean-clone/hosted-CI verification
-remains pending hosted CI and clean-clone verification. Phases 1–3 are implemented and locally verified;
+implementation and automated fresh-checkout verification have passed locally and
+on GitHub Actions. Phases 1–3 are implemented and verified;
 Phase 4's optional OpenAI evaluator is implemented and locally verified. Live-model
 calibration remains deferred; Phase 5 (authorized security packs) is the next
 implementation phase.

@@ -5,6 +5,17 @@ historical comparisons and optional OpenAI judgments (Phases 1–4; live model
 calibration pending). The dated audit/verification records below
 are historical evidence, not descriptions of today's missing features.
 
+## Public repository verification — 2026-10-31
+
+[Hosted CI](https://github.com/s-kar10/sentinel/actions/runs/41241932580) passed
+all three jobs for `544ca9c`: 289 backend tests with PostgreSQL, 13 demo tests,
+16 Chromium workflows and the fresh Docker smoke, plus dependency/static checks.
+The first run exposed a runtime-dependent JSON recursion assumption; explicit
+100-container depth checks now cover text and decoded sources, with policy
+provenance. A separate public clone passed Compose config validation. Earlier
+notes about absent Git metadata or pending hosted verification are historical.
+Live OpenAI calibration remains deferred; the service is not publicly deployed.
+
 ## Architecture that exists today
 
 ```mermaid

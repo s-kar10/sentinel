@@ -7,14 +7,15 @@ Do not start the next major phase without the user's instruction.
 
 Status: `[x]` means verified existing/completed work; `[ ]` means remaining work.
 The initial audit and P0-1 through P0-5 are implemented and locally verified.
-**Phase 0 implementation is complete locally.** Its remaining exit verification is
-clean-clone onboarding and hosted CI execution after the initial GitHub push.
+**Phase 0 is verified locally and through hosted CI.** Fresh-checkout installation,
+browser workflows and the Docker demo smoke passed on GitHub; a separate public
+clone and Compose configuration check also passed.
 Phase 1 was completed, followed by Phases 2 and 3 under the user's request to
 finish the next two entire phases.
 Phase 4 is implemented and locally verified; live OpenAI calibration is explicitly
 deferred by the user. **Next implementation phase: Phase 5 — Real security testing.**
 Phase 5 has not started beyond the original simple probe categories.
-Phase 0's external verification remains open and has not been silently accepted.
+Phase 0's previously pending automated external verification is recorded below.
 Repository: [s-kar10/sentinel](https://github.com/s-kar10/sentinel), public source
 with `main` as the primary branch. Credentials, local databases and generated
 artifacts are excluded. The initial source scan passed; hosted CI and clean-clone
@@ -28,7 +29,13 @@ one failure: a JSON depth test depended on the host's parser recursion limit.
 The fix enforces an explicit 100-container limit for text/document/value JSON
 assertions, checks text before parsing, and records the policy in provenance and
 comparison identity. Boundary, escaping and pre-parse tests cover the change.
-Hosted verification of the fix is pending; no live OpenAI calibration is claimed.
+The [follow-up hosted run](https://github.com/s-kar10/sentinel/actions/runs/41241932580)
+passed all three jobs for commit `544ca9c`: 289 backend tests including PostgreSQL,
+13 demo tests, 16 Chromium workflows, locked clean installs, static checks and the
+full Compose smoke. A separate fresh clone of the public repository passed Compose
+configuration validation and contained no local secrets/database. Temporary local
+clone resources were removed. Live OpenAI calibration remains deferred; this does
+not establish public-deployment readiness or independent user usability testing.
 
 The earlier 2026-10-28 verification refresh passed the existing suites and static checks;
 no Compose services were running for a live stack check (see
@@ -38,7 +45,7 @@ no Compose services were running for a live stack check (see
 
 | Phase | Goal | Status |
 | --- | --- | --- |
-| 0 | Stabilize the MVP | P0-1 through P0-5 locally verified; clean-clone/hosted CI verification pending |
+| 0 | Stabilize the MVP | Complete; local checks and fresh-checkout hosted CI verified |
 | 1 | Evaluation Engine V2 | Complete locally; configuration, isolation, provenance, outcomes and metrics verified |
 | 2 | Asynchronous evaluation infrastructure | Complete locally; transactional queue, worker, retries/limits, cancellation and recovery verified |
 | 3 | Historical analytics and regression detection | Complete locally; immutable baselines, version labels, comparisons, trends and descriptive repeat policy verified |
@@ -269,7 +276,9 @@ A new developer can clone the eventual Git repository, follow a verified setup,
 run the complete application locally, execute the demo suite, and understand its
 architecture. P0-1 through P0-5 are accepted, migration adoption preserves existing
 data, tests/checks run reproducibly, and remaining limitations are documented.
-Git metadata is absent from this workspace; remote/clone setup is not verified.
+Public clone and hosted fresh-checkout checks were verified on 2026-10-31; see
+the initial hosted verification record above. Historical pending notes in the
+individual task records describe their status at that earlier time.
 
 ## Phase 1 — Evaluation Engine V2
 
