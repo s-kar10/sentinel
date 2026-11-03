@@ -5,7 +5,8 @@ bounded regex/schema/transport checks, persisted provenance and new metrics, see
 [ENGINE_V2.md](ENGINE_V2.md).
 
 Phase 1 now supports reusable, validated JSON packs through the API. The ordinary
-**Run evaluation** button still runs the eight-check Sentinel baseline. Custom
+**Run evaluation** button defaults to the eight-check Sentinel baseline. Target
+details also offer the three [Phase 5 security packs](SECURITY_PACKS.md). Custom
 packs use the same target client, evaluator registry, persistence, and report UI.
 Only test owned or explicitly authorized targets with synthetic data.
 
@@ -60,7 +61,8 @@ evidence for real AI models.
 ## Reuse and version a pack
 
 `GET /attack-packs` returns an array of built-in packs, currently
-`sentinel-baseline` version 1. Wrap a returned object in `{"attack_pack": ...}` and
+`sentinel-baseline` version 1 plus three format 2 security packs, each version 1
+(see [security pack setup and contracts](SECURITY_PACKS.md)). Wrap a returned object in `{"attack_pack": ...}` and
 POST it to the evaluation endpoint to run it unchanged. Save that JSON file for
 reuse against another authorized target. Submitted custom packs are not added to
 this endpoint or stored in a server-side pack library.

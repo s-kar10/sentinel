@@ -11,9 +11,10 @@ This repository is a production-minded MVP: it emphasizes modular boundaries,
 validated API contracts, deterministic evaluation, durable PostgreSQL results, and
 behavioral tests. It is not a production security scanner yet.
 
-**Current stage: Phases 1–4 implemented locally.** Sentinel now supports configurable
+**Current stage: Phases 1–5 implemented locally.** Sentinel now supports configurable
 assertions, background evaluations with cancellation/recovery, versioned baselines,
-historical comparisons, and optional OpenAI rubric-based judging. Live OpenAI
+historical comparisons, optional OpenAI rubric-based judging, and versioned
+security packs with safe/vulnerable synthetic fixtures. Live OpenAI
 calibration is deferred at the user's request; controlled HTTP fixtures verify
 the integration. See the [roadmap](docs/ROADMAP.md) for verification
 counts and remaining phases. The demo still produces eight results: four passes,
@@ -34,7 +35,7 @@ pipeline. Neither the application nor the demo is intended for public hosting ye
   [completed work versus remaining work](docs/ROADMAP.md).
 - **Boundaries:** [security risks and deployment limitations](docs/SECURITY.md).
 
-The test suite covers 289 backend cases, 13 demo tests and 16 Chromium workflows.
+The test suite covers 301 backend cases, 34 demo tests and 23 Chromium workflows.
 Verification results and the deferred live OpenAI calibration are recorded in the
 roadmap.
 
@@ -44,6 +45,7 @@ Project documentation:
 - [Product vision](docs/PRODUCT_VISION.md)
 - [Roadmap and verification status](docs/ROADMAP.md)
 - [Custom attack packs and API examples](docs/ATTACK_PACKS.md)
+- [Security packs, controlled fixtures and category mappings](docs/SECURITY_PACKS.md)
 - [Background jobs, versioned baselines and historical comparisons](docs/ASYNC_HISTORY.md)
 - [Engine V2: assertions, outcomes, scoring and runnable example](docs/ENGINE_V2.md)
 - [Optional OpenAI judging, setup, calibration and limitations](docs/LLM_EVALUATION.md)
@@ -335,7 +337,8 @@ With no body, it uses the versioned eight-check baseline. An optional
 `{"attack_pack": ...}` body selects a validated custom pack for that request.
 `GET /attack-packs` exports built-in pack definitions. See the
 [pack guide](docs/ATTACK_PACKS.md) for a runnable custom example, version rules,
-supported evaluators, and limits. The frontend Run button still uses the baseline.
+supported evaluators, and limits. The frontend defaults to the baseline; target
+details also let you select the [synthetic security packs](docs/SECURITY_PACKS.md).
 
 1. The service loads the target and checks the selected catalog's prerequisites.
    The bundled eight-attack catalog requires target canaries. If they are missing,
@@ -532,8 +535,8 @@ configured. Compose and core browser workflows now have automated tests. Phase 0
 implementation and automated fresh-checkout verification have passed locally and
 on GitHub Actions. Phases 1–3 are implemented and verified;
 Phase 4's optional OpenAI evaluator is implemented and locally verified. Live-model
-calibration remains deferred; Phase 5 (authorized security packs) is the next
-implementation phase.
+calibration remains deferred. Phase 5 adds verified synthetic security packs;
+Phase 6 (authentication, organizations and secure secrets) is next.
 
-Broader security packs, multi-user security, GitHub gates, observability, SDKs and
+Multi-user security, GitHub gates, observability, SDKs and
 cloud deployment follow in separate phases. See the roadmap for acceptance criteria.

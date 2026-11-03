@@ -85,3 +85,21 @@ def valid_target_payload() -> dict[str, Any]:
         "prompt_field": "payload.messages.0.content",
         "response_field": "result.answer",
     }
+
+
+@pytest.fixture
+def demo_app(monkeypatch):
+    """Load the demo under a private package name; both services own `app`."""
+    import importlib.util
+    import sys
+
+    directory = Path(__file__).resolve().parents[2] / "demo_target/app"
+    spec = importlib.util.spec_from_file_location(
+        "sentinel_demo_fixture",
+        directory / "main.py",
+        submodule_search_locations=[str(directory)],
+    )
+    module = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, spec.name, module)
+    spec.loader.exec_module(module)
+    return module.app

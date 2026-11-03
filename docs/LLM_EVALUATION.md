@@ -228,5 +228,6 @@ intervals or statistically calibrated false-positive rates.
   Boundaries limit local work, not an exact billing total. Prefer deterministic
   checks where they answer the question reliably.
 
-The next engineering phase is Phase 5, authorized security packs. Do not interpret
-that next phase as closure of the explicitly pending live Phase 4 calibration.
+Phase 5 now supplies [authorized synthetic security packs](SECURITY_PACKS.md).
+That work does not close the explicitly pending live Phase 4 calibration. Phase 6
+authentication, organizations and secure secrets is the next engineering phase.

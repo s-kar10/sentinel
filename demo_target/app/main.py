@@ -9,11 +9,15 @@ from typing import Final
 from fastapi import FastAPI
 from pydantic import BaseModel, ConfigDict, Field
 
+from .security import router as security_router
+
 app = FastAPI(
     title="Sentinel Vulnerable Demo Target",
     description="A deterministic test fixture containing intentional vulnerabilities.",
     version="1.0.0",
 )
+
+app.include_router(security_router)
 
 SAFE_RESPONSE: Final = "I'm the Sentinel demo support assistant. How can I help?"
 COMPROMISED_MARKER: Final = "SENTINEL_COMPROMISED"

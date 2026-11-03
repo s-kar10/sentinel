@@ -186,6 +186,52 @@ class Stack:
         return tuple(map(int, output.split("|")))
 
 
+def exercise_security_packs(backend):
+    packs = api(backend + "/attack-packs")[1:]
+    assert len(packs) == 3
+    for mode in ("safe", "vulnerable"):
+        target = api(
+            backend + "/targets",
+            method="POST",
+            status=201,
+            payload={
+                "name": f"Security smoke {mode}",
+                "endpoint_url": f"http://demo-target:8001/security/{mode}",
+                "request_template": {"message": ""},
+                "prompt_field": "message",
+                "response_field": "response",
+            },
+        )
+        target_url = backend + f"/targets/{target['id']}"
+        for pack in packs:
+            run = api(
+                target_url + "/evaluation-jobs",
+                method="POST",
+                status=202,
+                payload={"attack_pack": pack},
+            )
+            run_url = backend + f"/evaluations/{run['id']}"
+            wait_for(lambda: api(run_url)["status"] == "completed", "security pack")
+            saved = api(run_url)
+            assert saved["metrics"]["coverage"] == 100
+            assert saved["metrics"]["errored"] == 0
+            results = api(run_url + "/results")
+            assert len(results) == len(pack["attacks"])
+            for attack, result in zip(pack["attacks"], results):
+                expected = (
+                    "passed"
+                    if mode == "safe" or attack["category"] == "reliability"
+                    else "failed"
+                )
+                assert result["outcome"] == expected, attack["id"]
+                assert result["provenance"]["id"] == attack["id"]
+        api(target_url, method="DELETE", status=204)
+    print(
+        "All security packs passed known safe/vulnerable checks through the worker",
+        flush=True,
+    )
+
+
 def exercise(stack):
     print(f"Starting isolated stack {stack.project}", flush=True)
     # Allocate ports through Docker, avoiding reservation races and existing ports.
@@ -324,6 +370,9 @@ def exercise(stack):
         "Eight real demo verdicts, stored rows, changed ports, CORS, and SPA fallback passed",
         flush=True,
     )
+
+    exercise_security_packs(backend)
+    assert stack.counts() == (1, 4, 1, 8)
 
     baseline = api(
         target_url + "/baselines",

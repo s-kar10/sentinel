@@ -45,12 +45,25 @@ Compose configuration validation does not start any services.
 
 ### PostgreSQL tests
 
-The default backend suite has **259 cases and 30 PostgreSQL skips**. To run all
-**289 cases**, set `SENTINEL_TEST_POSTGRES_URL` to a disposable PostgreSQL 16
+The default backend suite has **271 cases and 30 PostgreSQL skips**. To run all
+**301 cases**, set `SENTINEL_TEST_POSTGRES_URL` to a disposable PostgreSQL 16
 database whose name ends in `_migration_test`, then run the same Python script.
 See [migration verification](MIGRATIONS.md#verification). CI provisions its own
 PostgreSQL service with synthetic credentials and always sets this variable.
 Tests create and clean their own schemas. Never use a database containing real data.
+
+### Security pack checks
+
+`backend/tests/test_security_packs.py` verifies all three exported packs against
+safe and vulnerable fixture routes, saved evidence, and explicit detector limits.
+`demo_target/tests/test_security.py` checks independent fixture validation, scoped
+tool arguments, no tool side effects and request isolation. The demo suite now has
+34 tests. Seven new Chromium tests cover six real queued pack/mode combinations
+and pack-list failure/retry, bringing browser coverage to 23 workflows. The
+2026-11-03 run passed but emitted a worker `SystemExit: 0` during logging shutdown;
+shutdown signal handling remains a maintenance item. The Compose
+smoke also executes every pack/mode through PostgreSQL and the real worker.
+See [security packs](SECURITY_PACKS.md) for protocol and expected outcomes.
 
 ### Semantic evaluator checks
 
@@ -58,7 +71,7 @@ Tests create and clean their own schemas. Never use a database containing real d
 subprocesses and synthetic keys. It tests no external model and spends no API
 tokens. Judge/history tests also pass in the Linux Python 3.12 runtime. Browser
 coverage now includes three fixture-driven semantic report cases (fresh, cached,
-errored), for 16 Chromium workflows total. Provider HTTP/worker integration is
+errored), within the current 23 Chromium workflows. Provider HTTP/worker integration is
 covered by backend tests; the browser fixtures do not prove live provider access.
 
 Run the fixture calibration CLI in [LLM_EVALUATION.md](LLM_EVALUATION.md) to verify

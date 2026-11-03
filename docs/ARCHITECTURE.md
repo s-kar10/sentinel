@@ -1,9 +1,22 @@
 # Sentinel architecture
 
 Current implementation includes Engine V2, durable background evaluations, and
-historical comparisons and optional OpenAI judgments (Phases 1–4; live model
+historical comparisons, optional OpenAI judgments and synthetic security packs
+(Phases 1–5; live model
 calibration pending). The dated audit/verification records below
 are historical evidence, not descriptions of today's missing features.
+
+## Phase 5 security pack boundary — 2026-11-03
+
+Three format 2 packs extend the existing registry with data and schema assertions;
+no execution engine, dependency or schema changes were needed. The pack export API
+keeps the baseline first, and the target detail UI submits the selected definition
+through the existing queue. Additional category strings fit the existing VARCHAR
+and JSON storage. Reports already expose structured observations and provenance.
+The demo adds independent, stateless safe/vulnerable protocol routes with inert
+tool/render intents. Their known outcomes verify the pipeline, not real-model
+robustness. See [contracts and limitations](SECURITY_PACKS.md) and
+[ADR-016](DECISIONS.md#adr-016--synthetic-security-packs-with-observable-trust-boundaries).
 
 ## Public repository verification — 2026-10-31
 

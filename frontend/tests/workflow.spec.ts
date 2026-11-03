@@ -246,3 +246,54 @@ test('save an immutable baseline and compare versioned queued runs', async ({ pa
   await expect(page.getByRole('heading', { name: 'Comparable configuration', exact: true })).toBeVisible()
   expect((await (await request.get(`${API}/targets/${target.id}/baselines`)).json())[0].run_id).toBe(first)
 })
+
+for (const mode of ['safe', 'vulnerable']) {
+  for (const [packId, count, failures, category] of [
+    ['sentinel-instruction-boundaries', 6, 5, 'instruction_hierarchy'],
+    ['sentinel-retrieval-boundaries', 4, 3, 'context_poisoning'],
+    ['sentinel-action-boundaries', 5, 4, 'excessive_agency'],
+  ] as const) {
+    test(`select ${packId} and inspect ${mode} fixture results`, async ({ page, request }) => {
+      const target = await (await request.post(`${API}/targets`, { data: {
+        name: `Security ${mode}`, endpoint_url: `http://127.0.0.1:18001/security/${mode}`,
+        request_template: { message: '' }, prompt_field: 'message', response_field: 'response',
+      } })).json()
+      await page.goto(`/targets/${target.id}`)
+      await page.getByLabel('Attack pack', { exact: true }).first().selectOption(packId)
+      await expect(page.getByText('These checks use simulated data and actions.', { exact: false }).first()).toBeVisible()
+      const submission = page.waitForRequest((r) => r.url().endsWith('/evaluation-jobs') && r.method() === 'POST')
+      await page.getByRole('button', { name: 'Run evaluation', exact: true }).first().click()
+      expect((await submission).postDataJSON().attack_pack.id).toBe(packId)
+      await expect(page.getByRole('heading', { name: 'Evaluation completed', exact: true })).toBeVisible({ timeout: 20_000 })
+      await expect(page.locator('.finding')).toHaveCount(count)
+      await expect(page.getByText(`${mode === 'safe' ? 0 : failures} checks detected undesirable behavior; 0 checks had execution errors.`)).toBeVisible()
+      await page.getByLabel('Filter by category').selectOption(category)
+      await expect(page.locator('.finding')).toHaveCount(1)
+      if (mode === 'vulnerable' && packId === 'sentinel-action-boundaries') {
+        await expect(page.locator('.finding')).toContainText('I cannot perform that action.')
+        await page.getByText('Structured response', { exact: true }).click()
+        await expect(page.locator('.finding')).toContainText('refund_order')
+      }
+      await page.reload()
+      await expect(page.locator('.finding')).toHaveCount(count)
+    })
+  }
+}
+
+test('pack loading failure can retry without blocking the baseline', async ({ page, request }) => {
+  const target = await (await request.post(`${API}/targets`, { data: {
+    name: 'Pack loading', endpoint_url: DEMO, request_template: { message: '' },
+    prompt_field: 'message', response_field: 'response',
+  } })).json()
+  let unavailable = true
+  await page.route(`${API}/attack-packs`, (route) => unavailable
+    ? route.fulfill({ status: 503, json: { detail: 'Fixture outage' } }) : route.continue())
+  await page.goto(`/targets/${target.id}`)
+  await expect(page.getByText('Additional packs unavailable.', { exact: false }).first()).toBeVisible()
+  await expect(page.getByLabel('Attack pack', { exact: true }).first()).toHaveValue('')
+  await expect(page.getByRole('button', { name: 'Run evaluation', exact: true }).first()).toBeEnabled()
+  unavailable = false
+  await page.getByRole('button', { name: 'Retry pack loading', exact: true }).first().click()
+  await page.getByLabel('Attack pack', { exact: true }).first().selectOption('sentinel-action-boundaries')
+  await expect(page.getByLabel('Attack pack', { exact: true }).first()).toHaveValue('sentinel-action-boundaries')
+})

@@ -156,3 +156,12 @@ export interface HistoryAnalytics {
     groups: { versions: Record<string, string | null>; status: string; repeated_regressions: string[]; needs_review: string[] }[]
   }
 }
+
+// Pack definitions are opaque data to the UI; the API validates their contents.
+export interface AttackPack {
+  schema_version: number
+  id: string
+  version: number
+  name: string
+  attacks: Record<string, unknown>[]
+}
