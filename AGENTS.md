@@ -97,3 +97,13 @@ data. Judge tests use owned HTTP fixtures and synthetic credentials. Live OpenAI
 calibration was explicitly deferred by the user; do not imply it has run. Follow
 [LLM_EVALUATION.md](docs/LLM_EVALUATION.md) for setup and calibration, and never paste
 or log keys. No new dependency is required for the HTTP adapter.
+
+## Synthetic security packs
+
+Phase 5 adds three format 2 packs and independent safe/vulnerable demo routes.
+Preserve the original eight-case baseline, pack/case version identity, positive
+response contracts and benign controls. Tool actions and render intents are inert
+fixture data: never turn them into network, filesystem or process operations.
+Run both fixture modes, browser selection/report tests and the Compose smoke for
+changes to these workflows. See [SECURITY_PACKS.md](docs/SECURITY_PACKS.md) for the
+protocol, authorization requirements, mappings and demonstrated detector limits.

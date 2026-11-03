@@ -181,9 +181,14 @@ def test_catalog_has_two_attacks_in_each_required_category() -> None:
     assert len(catalog) == 8
     counts = {
         category: sum(item.category == category for item in catalog)
-        for category in AttackCategory
+        for category in {item.category for item in catalog}
     }
-    assert counts == {category: 2 for category in AttackCategory}
+    assert counts == {
+        AttackCategory.PROMPT_INJECTION: 2,
+        AttackCategory.SYSTEM_PROMPT_LEAKAGE: 2,
+        AttackCategory.SENSITIVE_INFORMATION_LEAKAGE: 2,
+        AttackCategory.RELIABILITY: 2,
+    }
     assert len({item.id for item in catalog}) == len(catalog)
 
 

@@ -1,6 +1,5 @@
 """Backend/catalog/demo integration using SQLite and in-process HTTP transports."""
 
-import importlib.util
 from pathlib import Path
 
 import httpx
@@ -17,18 +16,11 @@ from app.services.target_client import TargetClient
 
 @pytest.mark.parametrize("exported_pack", [False, True])
 def test_demo_canaries_enable_expected_catalog_run_and_removal_blocks_next_run(
-    api_app, api_client: TestClient, exported_pack: bool
+    api_app, api_client: TestClient, exported_pack: bool, demo_app
 ) -> None:
-    # Both services name their package 'app'; load the real demo under a distinct
-    # name so this test cannot accidentally import the backend as the fixture.
-    demo_path = Path(__file__).resolve().parents[2] / "demo_target" / "app" / "main.py"
-    spec = importlib.util.spec_from_file_location("sentinel_demo_fixture", demo_path)
-    assert spec is not None and spec.loader is not None
-    demo = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(demo)
     calls: list[str] = []
 
-    with TestClient(demo.app) as demo_client:
+    with TestClient(demo_app) as demo_client:
 
         def dispatch(request: httpx.Request) -> httpx.Response:
             assert request.url.host == "demo-target"
@@ -77,8 +69,10 @@ def test_demo_canaries_enable_expected_catalog_run_and_removal_blocks_next_run(
 
             protected_ids = []
             for name, value in {
-                "policy": demo.INTERNAL_POLICY,
-                **demo.FAKE_PROTECTED_VALUES,
+                "policy": "INTERNAL_CUSTOMER_SUPPORT_POLICY",
+                "secret": "TEST_SECRET_ABC123",
+                "email": "demo.customer@example.test",
+                "customer_id": "CUSTOMER_TEST_001",
             }.items():
                 response = api_client.post(
                     f"/targets/{target_id}/protected-values",
@@ -131,16 +125,11 @@ def test_demo_canaries_enable_expected_catalog_run_and_removal_blocks_next_run(
             assert api_client.get(f"/evaluations/{run['id']}/results").json() == results
 
 
-def test_documented_engine_v2_example_against_real_demo(api_app, api_client):
+def test_documented_engine_v2_example_against_real_demo(api_app, api_client, demo_app):
     import json
 
     root = Path(__file__).resolve().parents[2]
-    spec = importlib.util.spec_from_file_location(
-        "sentinel_v2_demo_fixture", root / "demo_target/app/main.py"
-    )
-    demo = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(demo)
-    with TestClient(demo.app) as demo_client:
+    with TestClient(demo_app) as demo_client:
 
         def dispatch(request):
             response = demo_client.post(

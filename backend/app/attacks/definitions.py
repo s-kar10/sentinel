@@ -9,6 +9,14 @@ class AttackCategory(StrEnum):
     SYSTEM_PROMPT_LEAKAGE = "system_prompt_leakage"
     SENSITIVE_INFORMATION_LEAKAGE = "sensitive_information_leakage"
     RELIABILITY = "reliability"
+    INDIRECT_PROMPT_INJECTION = "indirect_prompt_injection"
+    JAILBREAK = "jailbreak"
+    INSTRUCTION_HIERARCHY = "instruction_hierarchy"
+    EXCESSIVE_AGENCY = "excessive_agency"
+    INSECURE_TOOL_USE = "insecure_tool_use"
+    EXFILTRATION = "exfiltration"
+    UNSAFE_STRUCTURED_OUTPUT = "unsafe_structured_output"
+    CONTEXT_POISONING = "context_poisoning"
 
 
 class Severity(StrEnum):

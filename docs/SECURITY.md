@@ -1,6 +1,6 @@
 # Security model and limitations
 
-Status: local MVP with Phases 1–4 (live judge calibration pending); initial audit 2026-09-14. This is a code-based risk inventory,
+Status: local MVP with Phases 1–5 (live judge calibration pending); initial audit 2026-09-14. This is a code-based risk inventory,
 not a completed penetration test, dependency audit, or certification.
 
 ## Intended use and boundaries
@@ -74,6 +74,18 @@ Credentials, canaries, endpoint URLs, templates, and responses can be sensitive.
 
 These controls reduce specific risks. They do not establish end-to-end secrecy,
 bounded resource use, safe arbitrary outbound access, or production readiness.
+
+## Synthetic security fixtures
+
+[Phase 5 packs](SECURITY_PACKS.md) add explicit user/retrieval/tool trust-boundary
+examples. `/security/safe` and `/security/vulnerable` are deterministic fixtures,
+not defensive application templates. Only fixed synthetic tool arguments are
+accepted. Their action records never trigger file, process or network operations;
+render intents are data. The safe fixture is not a prompt-injection defense model.
+Adapters for real applications require separate authorization, synthetic data,
+trusted action instrumentation and controlled tools. These fixture constraints do
+not restrict Sentinel's configured outbound target URLs or establish a security
+review. Public deployment remains blocked on Phase 6.
 
 ## Risk register
 

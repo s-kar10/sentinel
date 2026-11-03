@@ -205,7 +205,7 @@ def test_pack_round_trip_preserves_versions_order_and_literal_text(pack_payload)
 def test_builtin_export_matches_legacy_catalog_and_can_be_reimported(api_client):
     response = api_client.get("/attack-packs")
     assert response.status_code == 200
-    assert len(response.json()) == 1
+    assert len(response.json()) == 4
     pack = AttackPack.model_validate(response.json()[0])
     assert pack == BUILTIN_ATTACK_PACK
     assert pack.definitions() == ATTACK_CATALOG

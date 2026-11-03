@@ -1,6 +1,6 @@
 # Sentinel roadmap
 
-Baseline: V0.1, audited 2026-09-14. **Phases 1–4 are implemented locally.**
+Baseline: V0.1, audited 2026-09-14. **Phases 1–5 are implemented locally.**
 This roadmap is sequenced by engineering need, not by a promised release date.
 No later phase is complete merely because V0.1 contains one of its prerequisites.
 Do not start the next major phase without the user's instruction.
@@ -13,8 +13,9 @@ clone and Compose configuration check also passed.
 Phase 1 was completed, followed by Phases 2 and 3 under the user's request to
 finish the next two entire phases.
 Phase 4 is implemented and locally verified; live OpenAI calibration is explicitly
-deferred by the user. **Next implementation phase: Phase 5 — Real security testing.**
-Phase 5 has not started beyond the original simple probe categories.
+deferred by the user. Phase 5 is implemented and verified with controlled fixtures.
+**Next implementation phase: Phase 6 — Authentication, organizations, and secure secrets.**
+Phase 6 has not started; public deployment remains blocked on its security gate.
 Phase 0's previously pending automated external verification is recorded below.
 Repository: [s-kar10/sentinel](https://github.com/s-kar10/sentinel), public source
 with `main` as the primary branch. Credentials, local databases and generated
@@ -50,7 +51,7 @@ no Compose services were running for a live stack check (see
 | 2 | Asynchronous evaluation infrastructure | Complete locally; transactional queue, worker, retries/limits, cancellation and recovery verified |
 | 3 | Historical analytics and regression detection | Complete locally; immutable baselines, version labels, comparisons, trends and descriptive repeat policy verified |
 | 4 | LLM-based evaluation | Implemented and locally verified; live OpenAI calibration deferred by user |
-| 5 | Real security testing | Planned; four simple probe categories exist |
+| 5 | Real security testing | Complete locally; versioned synthetic packs, safe/vulnerable fixtures, browser and Compose verified |
 | 6 | Authentication, organizations, secure secrets | Planned; public deployment gate |
 | 7 | GitHub and CI/CD integration | Planned |
 | 8 | Observability and production reliability | Planned; liveness and database readiness exist |
@@ -569,18 +570,65 @@ JSON; scores are rubric judgments, not security guarantees. See
 
 - [x] Basic string probes for prompt injection, system prompt leakage, sensitive
   information leakage, and reliability; synthetic vulnerable fixture.
-- [ ] Reusable versioned packs for direct/indirect prompt injection, prompt
+- [x] Reusable versioned packs for direct/indirect prompt injection, prompt
   extraction, sensitive information leakage, jailbreak resistance, instruction
   hierarchy violations, excessive agency, insecure tool use, exfiltration
   simulations, unsafe structured output, and context poisoning.
-- [ ] Controlled fixtures for tools/retrieval and synthetic data; explicit scope,
+- [x] Controlled fixtures for tools/retrieval and synthetic data; explicit scope,
   safe simulated destinations, and expected outcomes.
-- [ ] Map appropriate tests to recognized AI security categories using verified
+- [x] Map appropriate tests to recognized AI security categories using verified
   references at implementation time; document limits of those mappings.
 
 **Exit criteria:** Packs include known vulnerable and safe fixtures, demonstrated
 detection limits, and documented authorization requirements. No functionality is
 intended to attack systems without permission or exfiltrate real data.
+
+### Phase 5 implementation and verification — 2026-11-03
+
+Three version 1 format 2 packs add **12 adversarial cases and 3 benign controls**:
+instruction boundaries (6 cases), retrieval boundaries (4) and action boundaries
+(5). They cover all eleven categories above, including separate retrieved-document
+and tool-result injection probes. The API exports them alongside the unchanged
+baseline; the target detail page selects and submits them through the existing
+queue. Reports retain category filters, assertion evidence and structured action
+observations. Existing compact/default runs still select the eight-case baseline.
+
+Independent stateless safe/vulnerable demo routes accept a bounded synthetic
+protocol. Tool arguments are fixed synthetic values; actions and rendering are
+inert records with no network/file/process execution. Positive schema constraints
+reject missing action evidence, while the allowed lookup control catches blanket
+tool denial. Known vulnerable fixtures fail all 12 attack cases; known safe
+fixtures pass all 15 cases; both pass all 3 controls. OWASP 2025 mappings use primary
+references verified at implementation time and explicitly limit their coverage.
+
+**Verification:** **301 backend tests** passed with SQLite and disposable
+PostgreSQL, **34 demo tests**, **23 Chromium workflows**, dependency locks, pip
+consistency, Ruff lint/format, frontend lint/type/build and Compose config passed.
+The isolated Compose smoke executes all six pack/mode combinations through the
+real PostgreSQL queue/worker, plus baseline recovery, restart, outage and cascade
+deletion; it passed and removed its resources. Backend checks verify persisted
+per-case verdicts/provenance, incomplete evidence, refusal text masking an action,
+and documented false-positive/false-negative examples. The browser verifies pack
+selection, new category filters, structured evidence, reload and pack-list retry.
+The baseline remains **8 cases / 4 passes / 4 failures / 50%**. No migration or
+dependency was added; main schema remains `0004_history`.
+
+**Limitations:** These are protocol/fixture results, not real-model security or
+calibration measurements. Real applications need authorized adapters and trusted
+observation of side effects. Literal detectors miss transformed leaks and exact
+answers reject paraphrases; those limits have tests. No real exfiltration, tool
+execution, vector store, training-data poisoning, deployment or attack against an
+external target occurred. Live OpenAI calibration remains deferred. Only Chromium
+is browser-tested. The existing Starlette/AnyIO warning remains; this browser run
+also printed a non-failing worker `SystemExit: 0` during logging shutdown. Hosted
+checks for this change are tracked by the PR; local success is not hosted evidence.
+
+See [SECURITY_PACKS.md](SECURITY_PACKS.md) for setup, protocol, expected outcomes,
+authorization requirements and mappings, and
+[ADR-016](DECISIONS.md#adr-016--synthetic-security-packs-with-observable-trust-boundaries)
+for alternatives and tradeoffs. **Next task:** design the Phase 6 authentication,
+organization/project ownership and authorization model in an ADR before adding
+multi-user paths; do not start without the user's instruction.
 
 ## Phase 6 — Authentication, organizations, and secure secrets
 

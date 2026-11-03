@@ -1,5 +1,5 @@
 import type {
-  ApiValidationIssue, Baseline, Comparison, HistoryAnalytics,
+  AttackPack, ApiValidationIssue, Baseline, Comparison, HistoryAnalytics,
   EntityId,
   EvaluationRun,
   HealthResponse,
@@ -151,10 +151,12 @@ export const api = {
   deleteProtectedValue: (id: EntityId) =>
     request<void>(`/protected-values/${id}`, { method: 'DELETE' }),
 
-  startEvaluation: async (targetId: EntityId, key: string, versions: Record<string, string>) =>
+  listAttackPacks: () => request<AttackPack[]>('/attack-packs'),
+
+  startEvaluation: async (targetId: EntityId, key: string, versions: Record<string, string>, attackPack?: AttackPack) =>
     unwrapEntity(
       await request<EvaluationRun | { data: EvaluationRun }>(`/targets/${targetId}/evaluation-jobs`, {
-        method: 'POST', headers: { 'Idempotency-Key': key }, body: JSON.stringify({ versions }),
+        method: 'POST', headers: { 'Idempotency-Key': key }, body: JSON.stringify({ versions, ...(attackPack ? { attack_pack: attackPack } : {}) }),
       }),
     ),
 

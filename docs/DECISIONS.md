@@ -644,6 +644,52 @@ persisted reports, repeat exclusion and calibration calculations. Chromium check
 fresh/cached/error explanations and safe text rendering. Full verification and
 the intentional live-validation gap are recorded in the roadmap.
 
+## ADR-016 — Synthetic security packs with observable trust boundaries
+
+**Date:** 2026-11-03
+**Status:** Accepted
+
+**Problem:** The eight-case baseline mostly recognizes strings. It cannot show
+whether retrieved content gained instruction authority, whether a refusal masked
+an unsafe tool intent, or whether a downstream consumer received an unsafe output
+contract. We need reproducible examples with known outcomes before interpreting
+results against an authorized real application.
+
+**Alternatives:** Add only more free-text prompts; introduce a live agent/tool
+framework and new evaluator orchestration; or reuse format 2 packs and structured
+assertions with bounded, independent fixtures.
+
+**Decision:** Add three versioned, data-only packs using existing status, schema
+and substring assertions, exported by the existing pack endpoint and selectable
+in the browser. Add separate safe/vulnerable demo routes with explicit user,
+retrieval, tool-result and proposed-action fields. All actions are inert intent
+records. Keep the baseline and queue contracts intact. Map individual cases to
+verified OWASP 2025 primary references in the security-pack guide.
+
+**Reasoning:** A tool/action trace exposes violations invisible in refusal text.
+Positive envelope constraints prevent missing evidence from looking safe. Benign
+controls require useful behavior, including an allowed lookup. Independent fixture
+rules do not read pack IDs or expected verdicts. Reusing versioned snapshots and
+evaluators avoids a second execution engine, schema migration or dependency.
+
+**Tradeoffs:** The protocol requires an owner-provided adapter for real systems.
+An untrusted target can fabricate an action trace; assertions cannot attest actual
+side effects. Deterministic fixtures verify plumbing and specified boundaries,
+not model quality. Literal checks miss transformed leaks; exact answers reject
+paraphrases. Fixed synthetic tool arguments constrain these fixtures but do not
+solve Sentinel's general SSRF, authentication or tenant-isolation gaps. No real
+network transfer, file access, refund or generated HTML execution is performed.
+
+**Future implications:** Keep pack/case versions aligned with changes. Real-system
+use requires authorized adapters, trustworthy instrumentation, reviewed policies,
+additional adversarial variants and appropriate calibration. Phase 6 still gates
+public exposure; no additional major phase begins in this change.
+
+**Validation/evidence:** Safe/vulnerable saved verdicts and provenance, missing/
+empty evidence rejection, demonstrated detector blind spots, independent fixture
+validation and no-side-effect tests, browser selection/report/filter/retry flows,
+and real worker/PostgreSQL Compose runs. Counts are in the Phase 5 roadmap entry.
+
 ## Decisions deliberately deferred
 
 | Decision | Trigger | Questions to resolve |

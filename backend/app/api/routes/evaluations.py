@@ -11,6 +11,7 @@ from app.api.dependencies import (
 )
 from app.attacks.catalog import BUILTIN_ATTACK_PACK
 from app.attacks.packs import AttackPack, EvaluationStartRequest
+from app.attacks.security import SECURITY_PACKS
 from app.schemas.evaluation import EvaluationRunRead, TestResultRead
 from app.schemas.history import BaselineRead, BaselineRequest
 from app.schemas.job import JobRequest
@@ -24,7 +25,7 @@ router = APIRouter(tags=["evaluations"])
 def list_attack_packs() -> list[AttackPack]:
     """Export built-in definitions; submitted custom packs are not stored here."""
 
-    return [BUILTIN_ATTACK_PACK]
+    return [BUILTIN_ATTACK_PACK, *SECURITY_PACKS]
 
 
 @router.post(
