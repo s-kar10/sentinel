@@ -84,10 +84,14 @@ class Stack:
                     "FRONTEND_",
                     "DEMO_TARGET_",
                     "TARGET_",
+                    "AUTH_",
+                    "APP_ENVIRONMENT",
                 )
             )
         }
         self.env.update(
+            AUTH_MODE="local",
+            APP_ENVIRONMENT="development",
             POSTGRES_DB="sentinel_smoke",
             POSTGRES_USER="sentinel",
             POSTGRES_PASSWORD="synthetic_smoke_password",
@@ -184,6 +188,93 @@ class Stack:
             capture=True,
         )
         return tuple(map(int, output.split("|")))
+
+
+def exercise_access(stack, backend):
+    stack.env["AUTH_MODE"] = "token"
+    stack.compose(
+        "up",
+        "--no-deps",
+        "--force-recreate",
+        "--wait",
+        "--wait-timeout",
+        "120",
+        "backend",
+    )
+    assert api(backend + "/auth/status") == {"mode": "token"}
+    assert request(backend + "/targets")[0] == 401
+    stack.compose(
+        "exec",
+        "-T",
+        "backend",
+        "python",
+        "-m",
+        "app.auth.cli",
+        "issue",
+        "--name",
+        "Compose operator",
+        "--role",
+        "admin",
+        "--output",
+        "/tmp/smoke-access-token",
+    )
+    # Capture the fresh ephemeral credential, never print it or put it in argv.
+    value = stack.compose(
+        "exec", "-T", "backend", "cat", "/tmp/smoke-access-token", capture=True
+    )
+    headers = {"Authorization": "Bearer " + value}
+    identity = api(backend + "/auth/me", headers=headers)
+    target = api(
+        backend + "/targets",
+        method="POST",
+        status=201,
+        headers=headers,
+        payload={
+            "name": "Authenticated smoke",
+            "endpoint_url": "http://demo-target:8001/security/safe",
+            "request_template": {"message": ""},
+            "prompt_field": "message",
+            "response_field": "response",
+        },
+    )
+    target_url = backend + f"/targets/{target['id']}"
+    pack = api(backend + "/attack-packs", headers=headers)[-1]
+    run = api(
+        target_url + "/evaluation-jobs",
+        method="POST",
+        status=202,
+        headers=headers,
+        payload={"attack_pack": pack},
+    )
+    run_url = backend + f"/evaluations/{run['id']}"
+    wait_for(
+        lambda: api(run_url, headers=headers)["status"] == "completed",
+        "authenticated background evaluation",
+    )
+    assert api(run_url, headers=headers)["passed_tests"] == 5
+    assert (
+        request(target_url + "/evaluations", method="POST", headers=headers)[0] == 403
+    )
+    stack.compose("restart", "backend")
+    wait_for(lambda: request(backend + "/ready")[0] == 200, "authenticated API restart")
+    assert api(backend + "/auth/me", headers=headers) == identity
+    api(target_url, method="DELETE", status=204, headers=headers)
+    stack.compose(
+        "exec",
+        "-T",
+        "backend",
+        "python",
+        "-m",
+        "app.auth.cli",
+        "revoke",
+        str(identity["token_id"]),
+    )
+    assert request(backend + "/targets", headers=headers)[0] == 401
+    assert stack.counts() == (0, 0, 0, 0)
+    print(
+        "Token mode, private issuance, queued execution, restart and revocation passed",
+        flush=True,
+    )
 
 
 def exercise_security_packs(backend):
@@ -431,6 +522,7 @@ def exercise(stack):
     )
     assert remaining.strip() == "0"
     print("Database outage/recovery and cascade deletion passed", flush=True)
+    exercise_access(stack, backend)
 
 
 def main():

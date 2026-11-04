@@ -230,4 +230,5 @@ intervals or statistically calibrated false-positive rates.
 
 Phase 5 now supplies [authorized synthetic security packs](SECURITY_PACKS.md).
 That work does not close the explicitly pending live Phase 4 calibration. Phase 6
-authentication, organizations and secure secrets is the next engineering phase.
+operator access has started; organizations, secure target/provider secrets and
+network policy remain unfinished.

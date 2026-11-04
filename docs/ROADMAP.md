@@ -14,8 +14,9 @@ Phase 1 was completed, followed by Phases 2 and 3 under the user's request to
 finish the next two entire phases.
 Phase 4 is implemented and locally verified; live OpenAI calibration is explicitly
 deferred by the user. Phase 5 is implemented and verified with controlled fixtures.
-**Next implementation phase: Phase 6 — Authentication, organizations, and secure secrets.**
-Phase 6 has not started; public deployment remains blocked on its security gate.
+**Current implementation phase: Phase 6 — Authentication, organizations, and secure secrets.**
+P6-1 operator access is implemented; tenancy, secure target/provider secrets, network
+policy and the full security review remain unfinished. Public deployment stays blocked.
 Phase 0's previously pending automated external verification is recorded below.
 Repository: [s-kar10/sentinel](https://github.com/s-kar10/sentinel), public source
 with `main` as the primary branch. Credentials, local databases and generated
@@ -52,7 +53,7 @@ no Compose services were running for a live stack check (see
 | 3 | Historical analytics and regression detection | Complete locally; immutable baselines, version labels, comparisons, trends and descriptive repeat policy verified |
 | 4 | LLM-based evaluation | Implemented and locally verified; live OpenAI calibration deferred by user |
 | 5 | Real security testing | Complete locally; versioned synthetic packs, safe/vulnerable fixtures, browser and Compose verified |
-| 6 | Authentication, organizations, secure secrets | Planned; public deployment gate |
+| 6 | Authentication, organizations, secure secrets | In progress; P6-1 operator access implemented, remaining security gates open |
 | 7 | GitHub and CI/CD integration | Planned |
 | 8 | Observability and production reliability | Planned; liveness and database readiness exist |
 | 9 | Public API and SDK | Planned; unversioned REST/OpenAPI exists |
@@ -647,6 +648,57 @@ multi-user paths; do not start without the user's instruction.
 **Exit criteria:** Isolation and permission tests cover API/background paths;
 stored secrets never appear in responses/logs; rotation works; security review
 findings that block public exposure are resolved. CORS is not authorization.
+
+### P6-1 — Operator access boundary (implemented, 2026-11-04)
+
+- [x] Record the incremental authentication choice and planned organization/project
+  ownership model in ADR-017; do not confuse installation roles with tenant isolation.
+- [x] Add expiring, revocable random operator tokens with hashes at rest,
+  reader/runner/admin permissions and private CLI provisioning/lifecycle evidence.
+- [x] Protect application endpoints before body parsing, default-deny new routes,
+  fail closed on verification outages, and disable queue-bypassing synchronous
+  evaluation in token mode. Retain explicit local development compatibility.
+- [x] Add memory-only browser sign-in, denied-operation messages, sign-out/401
+  cleanup and protection against late responses from an earlier sign-in.
+- [x] Verify expiry, role denial, rotation/revocation, migration preservation and
+  authenticated background evaluation with controlled local fixtures.
+
+**Implemented:** Migration `0005_access_tokens` adds only token hashes and
+credential-lifecycle records. Tokens have 256 random bits, mandatory 1–90 day
+expiry (default 7), and fixed roles. A local CLI writes new credentials to exclusive
+0600 files, never stdout or argv. Verification reads the database per request;
+revocation is effective for subsequent admission without an API restart. CORS
+preflight and public operational endpoints do not grant access to application data.
+Browser reload clears authentication rather than persisting a bearer credential.
+No dependency, existing target-data rewrite or queue coordination change was needed.
+
+**Verification:** **335 backend tests** passed with SQLite/disposable PostgreSQL,
+including upgrade/downgrade from 0004 and existing queue tests; **34 demo tests**,
+**23 existing plus 4 authenticated Chromium workflows**, locks/pip/Ruff, frontend
+lint/type/build and Compose configuration passed. The full isolated Compose smoke
+passed baseline/security packs/recovery/outage/deletion and new real token-mode
+issuance, queue execution, restart and revocation, then removed its resources.
+Developer databases and `.env` files were not migrated or modified. Existing
+Starlette/AnyIO and non-failing browser worker-shutdown warnings remain visible.
+Initial hosted Python/Compose checks passed, but the second browser suite exposed
+a Linux `TIME_WAIT` preflight failure after the first suite had shut down. The
+probe now uses `SO_REUSEADDR`; two additional real-socket tests verify released
+ports are accepted and live listeners are rejected on macOS and Linux. The current
+backend suite has **337 tests**. Final hosted results are tracked in the PR; local
+results alone are not hosted verification. Only desktop Chromium is tested; live judge calibration remains deferred.
+
+**Still unfinished:** Phase 6 is not complete. All operator tokens share the same
+installation dataset; there are no human users, organization/project memberships,
+tenant-scoped workers/caches or encrypted target/provider secret storage. Network
+policy, retention, abuse limits and a complete security review remain required.
+Revocation does not cancel accepted jobs or undo in-flight effects. Credential
+lifecycle records are not a complete request/actor audit trail. The local default
+remains unauthenticated and is allowed only with the development environment setting.
+Public exposure is still prohibited. See [ACCESS_CONTROL.md](ACCESS_CONTROL.md).
+
+**Next task within Phase 6:** implement organization/project ownership and scoped
+resource access, then prove negative cross-tenant behavior across APIs, queue jobs,
+baselines, comparisons and judgment caches. Do not begin Phase 7.
 
 ## Phase 7 — GitHub and CI/CD integration
 

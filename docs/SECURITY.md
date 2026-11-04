@@ -9,8 +9,9 @@ Sentinel tests AI systems the developer owns or has explicit permission to test.
 Use synthetic data and fake/scoped test credentials. The included demo deliberately
 leaks public fake values and must never be exposed as a production AI application.
 
-The MVP has no authentication, authorization, or tenant isolation. Run it only in a
-trusted local environment. Compose publishes services on `127.0.0.1`, but that
+The default local mode is unauthenticated. Optional token mode adds installation-wide
+API roles, but there is still no tenant isolation. Run only in a trusted local
+environment; see [operator access](ACCESS_CONTROL.md). Compose publishes services on `127.0.0.1`, but that
 does not protect against untrusted processes on the host or all container-network
 access. Do not expose the API, database, or demo publicly before the security gate
 in [ROADMAP.md](ROADMAP.md), Phase 6.
@@ -75,6 +76,23 @@ Credentials, canaries, endpoint URLs, templates, and responses can be sensitive.
 These controls reduce specific risks. They do not establish end-to-end secrecy,
 bounded resource use, safe arbitrary outbound access, or production readiness.
 
+## Operator access boundary (P6-1)
+
+Token mode validates expiring/revocable opaque token hashes on every protected
+request and applies a default-deny route policy before body parsing. Reader,
+runner and admin are installation-wide roles, not organization/project grants.
+The local CLI alone issues/revokes credentials and records lifecycle events.
+Tokens are written to exclusive 0600 files; the API never returns their values or
+hashes. The browser keeps tokens in memory and clears application state on 401 or
+sign-out. Authorized responses use no-store caching. CORS is not authentication.
+See [scope, threat boundaries and limits](ACCESS_CONTROL.md).
+
+All tokens still address the same data. Target/provider credentials and active
+jobs retain their existing plaintext storage; revoking an operator token does not
+cancel accepted work. No request quota or egress allowlist was added. This is a
+verified access-control milestone, not the full Phase 6 security review. Tests
+cover permission/expiry/revocation failures, not a claim of tenant isolation.
+
 ## Synthetic security fixtures
 
 [Phase 5 packs](SECURITY_PACKS.md) add explicit user/retrieval/tool trust-boundary
@@ -92,12 +110,12 @@ review. Public deployment remains blocked on Phase 6.
 | Risk | Current exposure | Required direction / gate |
 | --- | --- | --- |
 | SSRF and internal network access | Any accepted HTTP(S) target can address backend-reachable services; no DNS/IP/port allowlist or egress enforcement | Before public/multi-user use: explicit authorized destinations, IPv4/IPv6 and DNS rebinding defenses, connection-time enforcement, metadata/private-network policy, and network egress restrictions. Preserve local demo access through an explicit development policy |
-| Unauthenticated access | Anyone reaching the API can configure targets, run requests, read reports, or cascade-delete data | Users, roles, tenant isolation, scoped API tokens, authorization on every API and job path |
+| Access and tenant boundaries | Local mode is unauthenticated; token mode enforces installation-wide roles but all readers share data | Human identity, organization/project membership, tenant-scoped tokens, authorization on every resource and job path |
 | Plaintext secrets | API keys, canaries and active job payloads are plaintext in the database/backups | Encryption or secret-manager references, key isolation, least privilege, rotation/revocation, audit access |
 | Sensitive evidence | New evidence redacts known keys/canaries; other sensitive content, encodings and old raw records can remain | Redaction/retention policy, scoped evidence access, safe exports, deletion/backup policy. Write-only key fields do not protect copies in target output |
 | Secrets in other fields/errors | Templates and URL query strings are readable; validation redaction is field-specific, not comprehensive | Treat all input/output surfaces as potential secrets; use synthetic tests to cover validation, exceptions, logs, and UI. Do not place real secrets in templates/URLs |
 | Request/response resource exhaustion | No application request-body or template depth limit; response cap is checked after decoding/chunk allocation; queued cases/runs now have deadlines; memory/decompression/input allocation is not fully bounded | Bounded input, parser/decompression safeguards, total deadlines, concurrency/rate limits and quotas |
-| Run/API abuse | Queue limits/cancellation/idempotency exist, but queued submission count is unbounded and the deprecated synchronous route bypasses queue controls | Gate every execution path, bound queue size and add authenticated tenant budgets before exposure |
+| Run/API abuse | Queue limits/cancellation/idempotency exist, but queued submission count is unbounded and the local-mode synchronous route bypasses queue controls (disabled in token mode) | Gate every execution path, bound queue size and add authenticated tenant budgets before exposure |
 | Regex execution cost | Format 2 regex/schema use bounded isolated children; process scheduling/startup and overall resource usage remain operational concerns | Retain limits and measure workloads; expand schema features only with resource/security review |
 | Database operations | P0-2 adds versioned migrations, guarded legacy adoption, startup revision checks, and documented/tested backup/restore procedures; target deletion still cascades history | Run migrations during a controlled maintenance window; protect backups and validate restoration. Automated production backup/recovery remains required before hosting |
 | Dependency/container vulnerabilities | P0-3 adds hash-checked Python locks and a tested update workflow. A point-in-time npm audit found three affected packages, patched within existing ranges; the repeated npm audit reported zero findings. Python/container vulnerability scanning is still unverified | Establish repeatable scanning and release maintenance; hashes and passing tests do not establish package safety |

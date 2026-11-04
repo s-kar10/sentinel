@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './tests',
+  testMatch: process.env.SENTINEL_BROWSER_AUTH === '1' ? '**/access.spec.ts' : ['**/report.spec.ts', '**/workflow.spec.ts'],
   fullyParallel: false,
   workers: 1,
   retries: 0,

@@ -8,10 +8,13 @@ from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 from sqlalchemy import Engine
 
 from app.api.router import api_router
+from app.auth.middleware import AccessMiddleware
+from app.auth.policy import PUBLIC_GET
 from app.core.config import Settings, get_settings
 from app.database.migrations import require_current_schema
 from app.database.session import engine
@@ -61,8 +64,15 @@ def create_app(
         title=resolved_settings.app_name,
         version="0.1.0",
         lifespan=lifespan,
+        docs_url="/docs" if resolved_settings.auth_mode == "local" else None,
+        redoc_url="/redoc" if resolved_settings.auth_mode == "local" else None,
     )
     application.state.database_engine = resolved_engine
+    application.add_middleware(
+        AccessMiddleware,
+        engine=resolved_engine,
+        mode=resolved_settings.auth_mode,
+    )
     application.add_middleware(
         CORSMiddleware,
         allow_origins=resolved_settings.parsed_cors_origins,
@@ -71,6 +81,32 @@ def create_app(
         allow_headers=["*"],
     )
     application.include_router(api_router)
+
+    if resolved_settings.auth_mode == "token":
+
+        def protected_openapi():
+            if application.openapi_schema is None:
+                schema = get_openapi(
+                    title=application.title,
+                    version=application.version,
+                    routes=application.routes,
+                )
+                schema.setdefault("components", {}).setdefault("securitySchemes", {})[
+                    "OperatorToken"
+                ] = {
+                    "type": "http",
+                    "scheme": "bearer",
+                    "bearerFormat": "opaque operator token",
+                }
+                for path, operations in schema["paths"].items():
+                    for method, operation in operations.items():
+                        if method == "get" and path in PUBLIC_GET:
+                            continue
+                        operation["security"] = [{"OperatorToken": []}]
+                application.openapi_schema = schema
+            return application.openapi_schema
+
+        application.openapi = protected_openapi
 
     if application_settings is not None:
         application.dependency_overrides[get_settings] = lambda: resolved_settings

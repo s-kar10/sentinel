@@ -1,8 +1,9 @@
 """Environment-backed application settings."""
 
 from functools import lru_cache
+from typing import Literal
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL
 
@@ -24,6 +25,7 @@ class Settings(BaseSettings):
 
     app_name: str = "Sentinel API"
     app_environment: str = "development"
+    auth_mode: Literal["local", "token"] = "local"
     database_url: str = "sqlite:///./sentinel.db"
     # Component settings avoid unsafe string interpolation when database passwords
     # contain URL-reserved characters. DATABASE_URL remains supported when no host
@@ -50,6 +52,12 @@ class Settings(BaseSettings):
         default=None, ge=0, le=10000, allow_inf_nan=False
     )
     judge_price_version: str = Field(default="unconfigured", max_length=100)
+
+    @model_validator(mode="after")
+    def restrict_local_access(self):
+        if self.auth_mode == "local" and self.app_environment != "development":
+            raise ValueError("Local access mode is only allowed in development.")
+        return self
 
     @field_validator(
         "judge_input_usd_per_million", "judge_output_usd_per_million", mode="before"

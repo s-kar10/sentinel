@@ -6,6 +6,19 @@ historical comparisons, optional OpenAI judgments and synthetic security packs
 calibration pending). The dated audit/verification records below
 are historical evidence, not descriptions of today's missing features.
 
+## Phase 6 operator admission boundary — 2026-11-04
+
+An ASGI access middleware runs before route body parsing. In token mode it resolves
+a random token's hash against the database, checks expiry/revocation and enforces
+an explicit method/path role table. Failed lookup never falls back to local mode.
+CORS stays outside that middleware so legitimate preflight works without exposing
+application records. Credential lifecycle uses a local CLI; no public registration
+or token-management API is added. API tokens never enter target execution payloads.
+The browser gates route rendering on mode/sign-in and stores credentials only in
+memory, with a generation check to reject old-session responses. Queue semantics
+are unchanged. This is one trusted installation, not multi-tenant authorization.
+See [ADR-017](DECISIONS.md#adr-017--operator-access-first-with-an-explicit-path-to-tenant-identity).
+
 ## Phase 5 security pack boundary — 2026-11-03
 
 Three format 2 packs extend the existing registry with data and schema assertions;
@@ -86,7 +99,8 @@ errors; expired leases are recovered on subsequent queue visits.
 
 Seven application tables now exist: `target_applications`, `protected_values`,
 `evaluation_runs`, `test_results`, `evaluation_jobs`, `queue_control`, `baselines`.
-Alembic adds its revision table. Schema head is `0004_history`.
+Alembic adds its revision table. Schema head is `0005_access_tokens`; the two new tables hold operator token hashes
+and credential-lifecycle events.
 
 Phase 4 needs no main-schema migration: versioned judge definitions and outcomes
 use existing snapshot/assertion JSON fields. Only the supervising worker writes
@@ -140,7 +154,8 @@ return contributing IDs/window bounds. See [ASYNC_HISTORY.md](ASYNC_HISTORY.md).
 routes. Queued submissions return 202; legacy synchronous evaluations and ordinary
 creates return 201; immutable-name/idempotency conflicts return 409. Cancellation,
 baseline creation/listing, comparisons and bounded history are available. No
-public API version prefix, authentication, tenants or SDK exists yet.
+public API version prefix, tenant isolation or SDK exists yet. Optional operator
+authentication is described in [ACCESS_CONTROL.md](ACCESS_CONTROL.md).
 
 The React frontend supports explicit key removal, polling recovery after transient
 errors, outcome filters, coverage, provenance and historical analysis. API types

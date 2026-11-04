@@ -11,7 +11,7 @@ This repository is a production-minded MVP: it emphasizes modular boundaries,
 validated API contracts, deterministic evaluation, durable PostgreSQL results, and
 behavioral tests. It is not a production security scanner yet.
 
-**Current stage: Phases 1–5 implemented locally.** Sentinel now supports configurable
+**Current stage: Phases 1–5 implemented; Phase 6 access control in progress.** Sentinel now supports configurable
 assertions, background evaluations with cancellation/recovery, versioned baselines,
 historical comparisons, optional OpenAI rubric-based judging, and versioned
 security packs with safe/vulnerable synthetic fixtures. Live OpenAI
@@ -35,7 +35,7 @@ pipeline. Neither the application nor the demo is intended for public hosting ye
   [completed work versus remaining work](docs/ROADMAP.md).
 - **Boundaries:** [security risks and deployment limitations](docs/SECURITY.md).
 
-The test suite covers 301 backend cases, 34 demo tests and 23 Chromium workflows.
+The test suite covers 337 backend cases, 34 demo tests and 27 Chromium workflows.
 Verification results and the deferred live OpenAI calibration are recorded in the
 roadmap.
 
@@ -46,6 +46,7 @@ Project documentation:
 - [Roadmap and verification status](docs/ROADMAP.md)
 - [Custom attack packs and API examples](docs/ATTACK_PACKS.md)
 - [Security packs, controlled fixtures and category mappings](docs/SECURITY_PACKS.md)
+- [Operator tokens, API permissions and remaining Phase 6 boundaries](docs/ACCESS_CONTROL.md)
 - [Background jobs, versioned baselines and historical comparisons](docs/ASYNC_HISTORY.md)
 - [Engine V2: assertions, outcomes, scoring and runnable example](docs/ENGINE_V2.md)
 - [Optional OpenAI judging, setup, calibration and limitations](docs/LLM_EVALUATION.md)
@@ -329,6 +330,16 @@ The demo uses simple top-level paths, `message` and `response`, which is the lea
 ambiguous starting point. A protected-value create request has the shape
 `{"name":"Policy canary","value":"INTERNAL_CUSTOMER_SUPPORT_POLICY"}`.
 
+## Optional operator access
+
+The default local mode preserves the guided demo. Phase 6 now offers
+`AUTH_MODE=token` with revocable, expiring reader/runner/admin credentials and
+browser sign-in. Follow [access setup and rotation](docs/ACCESS_CONTROL.md) after
+applying migration `0005_access_tokens`. Tokens are issued to private files by a
+local CLI; browser storage is memory-only. Token mode requires queued evaluations
+and disables the deprecated synchronous endpoint. This is one installation's access
+gate, not multi-user isolation or permission to expose the MVP publicly.
+
 ## How evaluations work
 
 `POST /targets/{id}/evaluation-jobs` saves and schedules a background run (202):
@@ -498,7 +509,7 @@ report, shows a warning, and retries while the run remains pending/running.
   secret-manager references, key rotation, and access auditing.
 - Allowing users to configure arbitrary endpoint URLs creates server-side request
   forgery and network-scanning risk in a multi-user deployment. Production must add
-  authentication/authorization, tenant isolation, DNS/IP validation, egress policy,
+  tenant-scoped authentication/authorization, DNS/IP validation, egress policy,
   redirect controls, and destination allowlists.
 - The backend applies request timeouts and treats target output as untrusted data.
   It also enforces a default 1,000,000-byte response limit. These are not complete
@@ -520,7 +531,8 @@ report, shows a warning, and retries while the run remains pending/running.
   through the API; there is no pack editor, scheduling, model-assisted generation,
   or automatic deployment gates. Saved versioned snapshots are redacted and cannot
   guarantee identical responses from a live target.
-- There is no authentication, authorization, multi-tenancy, audit log, API submission quotas,
+- Optional operator tokens enforce installation-wide API roles; local mode remains
+  unauthenticated. There is no multi-tenancy, comprehensive request audit, API submission quotas,
   or encrypted secret storage.
 - The original score weights checks equally. Additive severity-weighted rates must
   be read alongside coverage; neither score certifies security.
@@ -536,7 +548,8 @@ implementation and automated fresh-checkout verification have passed locally and
 on GitHub Actions. Phases 1–3 are implemented and verified;
 Phase 4's optional OpenAI evaluator is implemented and locally verified. Live-model
 calibration remains deferred. Phase 5 adds verified synthetic security packs;
-Phase 6 (authentication, organizations and secure secrets) is next.
+Phase 6 has started with optional operator tokens and API permissions; tenant
+isolation, encrypted target/provider secrets and network policy remain unfinished.
 
 Multi-user security, GitHub gates, observability, SDKs and
 cloud deployment follow in separate phases. See the roadmap for acceptance criteria.

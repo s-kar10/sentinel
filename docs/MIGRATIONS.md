@@ -1,7 +1,7 @@
 # Database migrations
 
 Alembic 1.20.1 manages revisions from `0001_v01_baseline` through current head
-`0004_history`. Migrations describe
+`0005_access_tokens`. Migrations describe
 the database structure at each version. They run explicitly before the API starts;
 the API no longer creates tables. Existing target/run/result data is not migrated
 automatically or deleted by adoption.
@@ -14,6 +14,7 @@ automatically or deleted by adoption.
 | `0002_engine_v2` | Nullable engine/provenance/outcome/evidence metadata |
 | `0003_durable_jobs` | Job/coordinator tables, attempt counts; application adds CANCELLED status |
 | `0004_history` | Version tags, private comparison fingerprint and named baseline references |
+| `0005_access_tokens` | Operator token hashes, roles, expiry/revocation and credential lifecycle records |
 
 Back up first. Stop API and workers, build updated images, run the migration
 service, then restart both with the same code. Native users stop both processes,
@@ -21,6 +22,11 @@ run `python -m app.database.migrations upgrade` in `backend`, then restart them.
 Do not run mixed worker/API versions during this maintenance window. Existing
 runs keep their original results and scores; new nullable columns stay null.
 Old pending/running synchronous runs are not automatically turned into jobs.
+
+0005 adds two empty tables; it does not rewrite prior data or create credentials.
+Provision tokens explicitly through the [operator CLI](ACCESS_CONTROL.md). Downgrading
+0005 deletes all token hashes and credential lifecycle evidence; a re-upgrade has
+no tokens. Never expose an older unauthenticated release after downgrade.
 
 Downgrading from 0004 removes baselines/version/comparison metadata. Downgrading
 0003 removes jobs/attempt counts, including queued work and private payloads;
@@ -31,7 +37,7 @@ downgrade. A baseline downgrade drops all original data as documented below.
 
 ## The three concepts
 
-- **Upgrade:** apply missing revisions in order. An empty database gets all seven application
+- **Upgrade:** apply missing revisions in order. An empty database gets all nine application
   tables and their indexes/foreign keys, plus Alembic's revision-tracking table.
 - **Adopt:** inspect an old, unversioned V0.1 schema and record that it already
   matches the baseline. This does not recreate its tables or rewrite its rows.
