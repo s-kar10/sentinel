@@ -680,8 +680,12 @@ passed baseline/security packs/recovery/outage/deletion and new real token-mode
 issuance, queue execution, restart and revocation, then removed its resources.
 Developer databases and `.env` files were not migrated or modified. Existing
 Starlette/AnyIO and non-failing browser worker-shutdown warnings remain visible.
-Hosted results for this change are tracked in its PR; local results alone are not
-hosted verification. Only desktop Chromium is tested; live judge calibration remains deferred.
+Initial hosted Python/Compose checks passed, but the second browser suite exposed
+a Linux `TIME_WAIT` preflight failure after the first suite had shut down. The
+probe now uses `SO_REUSEADDR`; two additional real-socket tests verify released
+ports are accepted and live listeners are rejected on macOS and Linux. The current
+backend suite has **337 tests**. Final hosted results are tracked in the PR; local
+results alone are not hosted verification. Only desktop Chromium is tested; live judge calibration remains deferred.
 
 **Still unfinished:** Phase 6 is not complete. All operator tokens share the same
 installation dataset; there are no human users, organization/project memberships,

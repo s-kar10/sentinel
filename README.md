@@ -35,7 +35,7 @@ pipeline. Neither the application nor the demo is intended for public hosting ye
   [completed work versus remaining work](docs/ROADMAP.md).
 - **Boundaries:** [security risks and deployment limitations](docs/SECURITY.md).
 
-The test suite covers 335 backend cases, 34 demo tests and 27 Chromium workflows.
+The test suite covers 337 backend cases, 34 demo tests and 27 Chromium workflows.
 Verification results and the deferred live OpenAI calibration are recorded in the
 roadmap.
 

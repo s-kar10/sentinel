@@ -45,8 +45,8 @@ Compose configuration validation does not start any services.
 
 ### PostgreSQL tests
 
-The default backend suite has **304 cases and 31 PostgreSQL skips**. To run all
-**335 cases**, set `SENTINEL_TEST_POSTGRES_URL` to a disposable PostgreSQL 16
+The default backend suite has **306 cases and 31 PostgreSQL skips**. To run all
+**337 cases**, set `SENTINEL_TEST_POSTGRES_URL` to a disposable PostgreSQL 16
 database whose name ends in `_migration_test`, then run the same Python script.
 See [migration verification](MIGRATIONS.md#verification). CI provisions its own
 PostgreSQL service with synthetic credentials and always sets this variable.
@@ -64,6 +64,9 @@ in local mode; also run four token-mode workflows against separate fresh service
 ```
 
 Run these suites sequentially because they use the same reserved loopback ports.
+The port preflight uses `SO_REUSEADDR`, matching Uvicorn: it accepts released
+`TIME_WAIT` sockets after a suite exits but still rejects live listeners. Real
+socket regression tests verify both cases, including reproduction on Linux.
 The helper provisions public synthetic tokens only in its temporary test database;
 no developer database or credential is used. CI runs both suites. Browser traces
 contain these fake credentials; never use real operator tokens in recorded tests.

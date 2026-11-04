@@ -12,15 +12,22 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def require_free_ports(ports):
+    """Reject live listeners, but allow released TIME_WAIT sockets like Uvicorn."""
+    for port in ports:
+        with socket.socket() as probe:
+            # SO_REUSEADDR permits a sequential suite after TCP shutdown on Linux.
+            # It does not permit binding over a live listener (no SO_REUSEPORT).
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            probe.bind(("127.0.0.1", port))
+
+
 def main():
     def stop(_signum, _frame):
         raise SystemExit(0)
 
     signal.signal(signal.SIGTERM, stop)
-    # Refuse occupied ports before starting either child; never reuse live apps.
-    for port in (18000, 18001):
-        with socket.socket() as probe:
-            probe.bind(("127.0.0.1", port))
+    require_free_ports((18000, 18001))
     children = []
     with tempfile.TemporaryDirectory(prefix="sentinel-browser-") as directory:
         env = {
