@@ -82,7 +82,7 @@ per-case checkpoints when changing execution. Run PostgreSQL queue tests as well
 as SQLite tests for coordination changes. The deprecated synchronous endpoint
 retains compatibility but has no queue limits/recovery.
 
-Current schema head is `0004_history`; stop API and workers before migrations.
+Current schema head is `0005_access_tokens`; stop API and workers before migrations.
 Keep baseline references immutable and distinguish paired behavioral changes from
 errors/missing coverage. Do not claim significance from descriptive repeat rules.
 See [ASYNC_HISTORY.md](docs/ASYNC_HISTORY.md) for exact contracts and limitations.
@@ -92,7 +92,7 @@ See [ASYNC_HISTORY.md](docs/ASYNC_HISTORY.md) for exact contracts and limitation
 Phase 4 adds `llm_judge` assertions using OpenAI; disabled by default. Preserve
 pre-dispatch redaction, frozen private job configuration, bounded provider children,
 explicit unknown usage/cost and exclusion of cache hits from fresh repeat samples.
-Main schema remains `0004_history`; the local judgment cache is disposable derived
+The local judgment cache is disposable derived
 data. Judge tests use owned HTTP fixtures and synthetic credentials. Live OpenAI
 calibration was explicitly deferred by the user; do not imply it has run. Follow
 [LLM_EVALUATION.md](docs/LLM_EVALUATION.md) for setup and calibration, and never paste
@@ -107,3 +107,17 @@ fixture data: never turn them into network, filesystem or process operations.
 Run both fixture modes, browser selection/report tests and the Compose smoke for
 changes to these workflows. See [SECURITY_PACKS.md](docs/SECURITY_PACKS.md) for the
 protocol, authorization requirements, mappings and demonstrated detector limits.
+
+## Operator access (Phase 6 in progress)
+
+P6-1 adds optional token-mode authentication, reader/runner/admin permissions and
+private CLI provisioning. Local mode preserves development and is forbidden for
+non-development environment settings. Keep route permission inventory tests in
+sync; new paths must default to denied. Never copy operator bearer tokens into
+target/worker payloads, logs or browser persistence. Token mode disables the legacy
+synchronous evaluator. Run the additional authenticated browser suite with
+`(cd frontend && SENTINEL_BROWSER_AUTH=1 npm run test:e2e)`. Follow
+[ACCESS_CONTROL.md](docs/ACCESS_CONTROL.md) and migration 0005. This is not tenant
+isolation: organization/project ownership, encrypted target/provider credentials,
+egress policy and the full security review are unfinished. Do not claim Phase 6
+complete or expose the service publicly.

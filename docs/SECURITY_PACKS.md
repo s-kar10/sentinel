@@ -4,7 +4,8 @@ Phase 5 supplies three reusable format 2 packs, version 1, through
 `GET /attack-packs`. They exercise eleven security categories with twelve
 adversarial cases and three benign controls. They reuse the existing evaluator,
 queue, snapshots, comparison identity and report UI. No provider call, dependency,
-new table or migration is needed; schema head remains `0004_history`.
+new table or migration was needed for Phase 5. Current schema head is
+`0005_access_tokens` after the Phase 6 operator-access increment.
 
 These are **synthetic protocol tests**, not an estimate of real-model robustness.
 The deterministic safe and vulnerable targets have known behavior, allowing us to
@@ -168,5 +169,5 @@ The key engineering choice is to add **data and observable contracts** to the
 existing engine. A second scanner, live agent framework or new tool runtime would
 add operational and security risks without helping verify these known outcomes.
 The cost is adapter work and deliberately narrow assertions. The next major phase
-is authentication, tenancy, secret handling and enforced network policy; it has
-not started. See [ADR-016](DECISIONS.md#adr-016--synthetic-security-packs-with-observable-trust-boundaries).
+is Phase 6: operator access has started, while tenancy, secure target/provider
+secrets and enforced network policy remain unfinished. See [ADR-016](DECISIONS.md#adr-016--synthetic-security-packs-with-observable-trust-boundaries).

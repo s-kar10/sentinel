@@ -503,3 +503,32 @@ def test_jobs_and_history_upgrade_downgrade_preserve_original_evidence(
     with Session(migration_engine) as db:
         assert db.get(EvaluationRun, original).comparison_key is None
         assert db.get(EvaluationRun, completed_id).results[0].outcome == "passed"
+
+
+def test_access_upgrade_downgrade_preserves_prior_evidence(migration_engine):
+    from app.auth.tokens import Role, authenticate, issue, revoke
+    from app.models.access import AccessAudit, AccessToken
+
+    with migration_engine.begin() as connection:
+        command.upgrade(migration_config(connection), "0004_history")
+    target_id, run_id = seed_records(migration_engine)
+    migrate(migration_engine, "upgrade")
+    with Session(migration_engine) as db:
+        row, token = issue(db, "migration operator", Role.ADMIN)
+        token_id = row.id
+        db.commit()
+        assert authenticate(db, token).token_id == token_id
+        assert revoke(db, token_id)
+        db.commit()
+        assert authenticate(db, token) is None
+        assert len(list(db.scalars(sa.select(AccessAudit)))) == 2
+        assert db.get(AccessToken, token_id).digest != token
+    with migration_engine.begin() as connection:
+        command.downgrade(migration_config(connection), "0004_history")
+        assert "access_tokens" not in sa.inspect(connection).get_table_names()
+        assert "access_audit" not in sa.inspect(connection).get_table_names()
+    migrate(migration_engine, "upgrade")
+    with Session(migration_engine) as db:
+        assert list(db.scalars(sa.select(AccessToken))) == []
+        assert db.get(TargetApplication, target_id).api_key == "FAKE_MIGRATION_KEY"
+        assert db.get(EvaluationRun, run_id).results[0].response == "FAKE_CANARY"

@@ -690,6 +690,70 @@ empty evidence rejection, demonstrated detector blind spots, independent fixture
 validation and no-side-effect tests, browser selection/report/filter/retry flows,
 and real worker/PostgreSQL Compose runs. Counts are in the Phase 5 roadmap entry.
 
+## ADR-017 — Operator access first with an explicit path to tenant identity
+
+**Date:** 2026-11-04
+**Status:** Accepted for P6-1; tenant identity/ownership direction below is planned
+
+**Problem:** Every current API caller can read or mutate the same installation.
+Phase 6 combines identity, ownership, secret storage and network security. Treating
+a login form as completion would leave those boundaries unprotected. We need a
+small, testable admission boundary without inventing premature human-account or
+tenant infrastructure.
+
+**Alternatives:** Build passwords, recovery and registration now; choose an external
+identity vendor before the deployment/organization requirements are known; use a
+single static environment key; or issue revocable, expiring operator tokens in the
+existing database and keep the remaining Phase 6 gates explicit.
+
+**Decision:** Begin with opaque, random 256-bit operator tokens, SHA-256 digests in
+revision 0005, and reader/runner/admin API permissions. The local CLI provisions
+credentials into exclusive 0600 files and records issue/revoke events atomically.
+The API verifies each request before body parsing, uses a default-deny route policy,
+and never places the incoming bearer token in worker payloads. Explicit local
+mode preserves development compatibility and is forbidden outside the development
+environment setting. Token mode disables the synchronous queue-bypassing endpoint.
+The browser stores tokens in memory only and clears application state on 401 or
+sign-out. CORS is not authentication. No dependency is needed for these primitives.
+
+**Reasoning:** Revocation on each request is simpler to verify than a JWT denylist
+or cache invalidation. Random-token hashes do not require a human-password KDF;
+password support would require a separate design. A single static key would not
+provide individual revocation, expiry or least-privilege roles. The separate
+[OWASP authorization guidance](https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html)
+and [REST guidance](https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html),
+checked 2026-11-04, support default denial, per-request permission checks, TLS and
+keeping credentials out of URLs. This implementation is not an OWASP certification.
+
+**Planned identity and ownership model:** Human login should use an established
+OIDC provider, with stable `(issuer, subject)` identity rather than email as a
+primary key; vendor selection remains open. Organizations own projects, projects
+own targets, and membership grants roles within an organization/project. API tokens
+must eventually reference a subject and explicit scope, rather than just an
+operator label. Existing data must be adopted into an explicitly chosen owner,
+not silently made visible to every new user. Immutable ownership must flow through
+jobs/results/baselines and cache keys before multi-user access is enabled. Resource
+queries need ownership predicates as well as route permissions, with negative
+cross-tenant tests. None of these future tables or relationships is implemented by
+this milestone; creating unused schema would obscure rather than enforce isolation.
+
+**Tradeoffs:** All current token holders with read permission see the same dataset.
+Token names are labels, not verified human identities. CLI access trusts the host
+operator and database access. Audit covers credential lifecycle only; DB admins can
+rewrite it. Memory-only browser storage requires sign-in on reload and cannot
+withstand active XSS. Revocation blocks new requests but not in-flight work or
+accepted jobs. Local mode is intentionally unauthenticated. Authentication adds a
+DB read per protected request. Target/provider secrets remain plaintext; destination
+controls, submission quotas and retention still require Phase 6 work. No public
+hosting or multi-user readiness is claimed.
+
+**Validation:** All-route inventory and permission tests, expired/revoked/rotated
+credentials, malformed headers and auth DB failure, private CLI output/rollback,
+SQLite/PostgreSQL migration preservation, existing workflow compatibility, real
+browser auth/role/session cleanup and Compose token-mode queue/restart/revocation.
+The roadmap records verification counts. Next: ownership and tenant isolation,
+then secure target/provider secrets, outbound policy and the full security review.
+
 ## Decisions deliberately deferred
 
 | Decision | Trigger | Questions to resolve |
@@ -697,7 +761,7 @@ and real worker/PostgreSQL Compose runs. Counts are in the Phase 5 roadmap entry
 | External broker / queue scaling | Measured need after ADR-013 | Coordinator contention, outbox semantics, operations |
 | Statistical sampling / calibration | Before significance or release gates | Independence, minimum power, multiplicity, false-positive costs |
 | Live judge calibration | After ADR-015; deferred by user | Real-model disagreements, repeated variation, prompt sensitivity, usage/cost/latency |
-| Authentication and secrets provider | Phase 6 | Tenant model, roles, token lifecycle, encryption keys, operational ownership |
+| Human identity and secrets provider | Phase 6 after ADR-017 | OIDC vendor, ownership/membership enforcement, encryption keys, operational ownership |
 | GitHub App/configuration format | Phase 7 | Permissions, webhook verification, fork secrets, config versions, gate semantics |
 | Cloud and infrastructure as code | Phase 10 | Cost, managed services, networking, backup/restore, deployment/rollback |
 | Service extraction/caching | Phase 11 | Measured bottleneck, complexity cost, failure modes, correctness |

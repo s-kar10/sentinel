@@ -3,7 +3,9 @@
 Phases 2 and 3 add a durable worker and comparisons of saved evidence. The target
 adapter, attack definitions, assertion registry and existing scores are preserved.
 The default browser workflow uses the queue. These are local development features;
-authentication, encrypted secrets and safe public deployment remain future phases.
+tenant isolation, encrypted target/provider secrets and safe public deployment
+remain unfinished. Optional [operator access](ACCESS_CONTROL.md) now protects API
+admission; revoking that access does not cancel already accepted jobs.
 
 ## Run it
 

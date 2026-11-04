@@ -45,12 +45,30 @@ Compose configuration validation does not start any services.
 
 ### PostgreSQL tests
 
-The default backend suite has **271 cases and 30 PostgreSQL skips**. To run all
-**301 cases**, set `SENTINEL_TEST_POSTGRES_URL` to a disposable PostgreSQL 16
+The default backend suite has **304 cases and 31 PostgreSQL skips**. To run all
+**335 cases**, set `SENTINEL_TEST_POSTGRES_URL` to a disposable PostgreSQL 16
 database whose name ends in `_migration_test`, then run the same Python script.
 See [migration verification](MIGRATIONS.md#verification). CI provisions its own
 PostgreSQL service with synthetic credentials and always sets this variable.
 Tests create and clean their own schemas. Never use a database containing real data.
+
+### Operator access checks
+
+`backend/tests/test_access.py` exercises permissions, private token lifecycle,
+expiry/revocation, failed verification and the route inventory. Migration tests
+cover revision 0005 on SQLite and PostgreSQL. The standard 23 browser workflows run
+in local mode; also run four token-mode workflows against separate fresh services:
+
+```sh
+(cd frontend && SENTINEL_BROWSER_AUTH=1 npm run test:e2e)
+```
+
+Run these suites sequentially because they use the same reserved loopback ports.
+The helper provisions public synthetic tokens only in its temporary test database;
+no developer database or credential is used. CI runs both suites. Browser traces
+contain these fake credentials; never use real operator tokens in recorded tests.
+Compose smoke also verifies private issuance, authenticated queued runs, restart
+and revocation. No general public-deployment security certification is implied.
 
 ### Security pack checks
 
@@ -71,7 +89,7 @@ See [security packs](SECURITY_PACKS.md) for protocol and expected outcomes.
 subprocesses and synthetic keys. It tests no external model and spends no API
 tokens. Judge/history tests also pass in the Linux Python 3.12 runtime. Browser
 coverage now includes three fixture-driven semantic report cases (fresh, cached,
-errored), within the current 23 Chromium workflows. Provider HTTP/worker integration is
+errored), within the 23 local-mode Chromium workflows. Provider HTTP/worker integration is
 covered by backend tests; the browser fixtures do not prove live provider access.
 
 Run the fixture calibration CLI in [LLM_EVALUATION.md](LLM_EVALUATION.md) to verify

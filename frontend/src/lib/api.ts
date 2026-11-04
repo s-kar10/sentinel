@@ -1,3 +1,4 @@
+import { accessSnapshot, endAccess } from './access'
 import type {
   AttackPack, ApiValidationIssue, Baseline, Comparison, HistoryAnalytics,
   EntityId,
@@ -48,6 +49,7 @@ function errorMessage(payload: unknown, fallback: string): string {
 }
 
 async function request<T>(path: string, init: RequestInit = {}, timeoutMs = 45_000): Promise<T> {
+  const access = accessSnapshot()
   const controller = new AbortController()
   const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs)
   const abort = () => controller.abort()
@@ -61,6 +63,7 @@ async function request<T>(path: string, init: RequestInit = {}, timeoutMs = 45_0
         Accept: 'application/json',
         ...(init.body ? { 'Content-Type': 'application/json' } : {}),
         ...init.headers,
+        ...(access.token ? { Authorization: `Bearer ${access.token}` } : {}),
       },
       signal: controller.signal,
     })
@@ -70,7 +73,11 @@ async function request<T>(path: string, init: RequestInit = {}, timeoutMs = 45_0
       ? await response.json()
       : await response.text()
 
+    if (access.generation !== accessSnapshot().generation) {
+      throw new ApiError('Access changed while the request was in progress.', 401)
+    }
     if (!response.ok) {
+      if (response.status === 401 && access.token) endAccess(access.generation)
       throw new ApiError(
         errorMessage(payload, `Request failed with status ${response.status}`),
         response.status,
@@ -103,6 +110,8 @@ function unwrapEntity<T>(payload: T | { data: T }): T {
 }
 
 export const api = {
+  accessStatus: () => request<{ mode: 'local' | 'token' }>('/auth/status'),
+  accessIdentity: () => request<{ name: string; role: string; token_id: number | null }>('/auth/me'),
   health: () => request<HealthResponse>('/health'),
 
   listTargets: async () => {

@@ -11,5 +11,6 @@ __all__ = [
     "TestResult",
 ]
 
+from app.models.access import AccessAudit, AccessToken  # noqa: F401
 from app.models.baseline import Baseline  # noqa: F401
 from app.models.job import EvaluationJob, QueueControl  # noqa: F401

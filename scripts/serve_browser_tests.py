@@ -27,10 +27,22 @@ def main():
             key: value
             for key, value in os.environ.items()
             if not key.startswith(
-                ("DATABASE_", "CORS_", "TARGET_", "SQL_", "PYTHONPATH")
+                (
+                    "DATABASE_",
+                    "CORS_",
+                    "TARGET_",
+                    "SQL_",
+                    "PYTHONPATH",
+                    "AUTH_",
+                    "APP_ENVIRONMENT",
+                )
             )
         }
         env.update(
+            AUTH_MODE="token"
+            if os.environ.get("SENTINEL_BROWSER_AUTH") == "1"
+            else "local",
+            APP_ENVIRONMENT="development",
             DATABASE_URL=f"sqlite:///{directory}/test.db",
             CORS_ORIGINS="http://127.0.0.1:18473",
             PYTHONPATH=str(ROOT / "backend"),
@@ -43,6 +55,31 @@ def main():
                 env=env,
                 check=True,
             )
+            if env["AUTH_MODE"] == "token":
+                # Public fake credentials only for this fresh loopback test DB.
+                # Never read, alter or provision a developer's configured database.
+                subprocess.run(
+                    [
+                        sys.executable,
+                        "-c",
+                        """
+from datetime import datetime, timedelta, timezone
+from sqlalchemy.orm import Session
+from app.database.session import engine
+from app.models.access import AccessToken
+from app.auth.tokens import digest
+with Session(engine) as db:
+    for role, marker in [('admin', 'A'), ('reader', 'R')]:
+        db.add(AccessToken(name='Browser ' + role, role=role,
+            digest=digest('snt_' + marker * 43),
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1)))
+    db.commit()
+""",
+                    ],
+                    cwd=directory,
+                    env=env,
+                    check=True,
+                )
             for service, port in (("demo_target", 18001), ("backend", 18000)):
                 children.append(
                     subprocess.Popen(

@@ -1,4 +1,5 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { AccessGate } from './components/AccessGate'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { AppShell } from './components/AppShell'
 import { ScrollToTop } from './components/ScrollToTop'
@@ -13,7 +14,7 @@ import { TargetsPage } from './pages/TargetsPage'
 export default function App() {
   return (
     <AppErrorBoundary>
-      <BrowserRouter>
+      <AccessGate><BrowserRouter>
         <ScrollToTop />
         <Routes>
           <Route element={<AppShell />}>
@@ -27,7 +28,7 @@ export default function App() {
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>
-      </BrowserRouter>
+      </BrowserRouter></AccessGate>
     </AppErrorBoundary>
   )
 }
