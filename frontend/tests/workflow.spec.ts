@@ -112,6 +112,8 @@ test('real extraction errors are not reported as detected target behavior', asyn
   await request.post(`${API}/targets/${target.id}/protected-values`, { data: { name: 'fake', value: canaries.secret } })
   await page.goto(`/targets/${target.id}`)
   await page.getByRole('button', { name: 'Run evaluation', exact: true }).first().click()
+  // Eight isolated cases plus UI polling need a completion wait before verdict assertions.
+  await expect(page.locator('.status-badge')).toHaveText('Completed', { timeout: 20_000 })
   await expect(page.getByRole('heading', { name: 'Some checks could not be evaluated' })).toBeVisible()
   await expect(page.getByText('0 checks detected undesirable behavior; 8 checks had execution errors.')).toBeVisible()
   await expect(page.locator('.result-badge', { hasText: 'Execution error' })).toHaveCount(8)
