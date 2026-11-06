@@ -4,6 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
+from app.auth.scope import owned_targets
 from app.models import EvaluationRun
 from app.models.baseline import Baseline
 from app.services.comparison import (
@@ -27,6 +28,7 @@ class HistoryService:
         self.evaluations = EvaluationService(db, target_client_factory=lambda _: None)
 
     def create_baseline(self, target_id, run_id, name):
+        self.evaluations._get_target(target_id)
         run = self.evaluations.get_run(run_id)
         if (
             run.target_application_id != target_id
@@ -65,7 +67,12 @@ class HistoryService:
         )
 
     def baseline(self, baseline_id):
-        baseline = self.db.get(Baseline, baseline_id)
+        baseline = self.db.scalar(
+            select(Baseline).where(
+                Baseline.id == baseline_id,
+                Baseline.target_id.in_(owned_targets(self.db)),
+            )
+        )
         if baseline is None:
             raise ResourceNotFoundError("Baseline not found.")
         return self.evaluations.get_run(baseline.run_id)
@@ -76,6 +83,7 @@ class HistoryService:
         )
 
     def analytics(self, target_id, baseline_id, limit=50, through_run_id=None):
+        self.evaluations._get_target(target_id)
         baseline = self.baseline(baseline_id)
         if baseline.target_application_id != target_id:
             raise InvalidTargetConfigurationError(

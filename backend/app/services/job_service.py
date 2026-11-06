@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.attacks.packs import AttackPack
 from app.core.config import get_settings
 from app.judges.runtime import settings_snapshot
-from app.models import EvaluationRun, EvaluationStatus
+from app.models import EvaluationRun, EvaluationStatus, TargetApplication
 from app.models.job import EvaluationJob, QueueControl
 from app.services.errors import (
     ConflictError,
@@ -91,6 +91,7 @@ class JobService:
         idempotency_key: str | None = None,
         versions: dict | None = None,
     ) -> EvaluationRun:
+        self.evaluations._get_target(target_id)
         versions = {k: v for k, v in (versions or {}).items() if v is not None}
         request_digest = sha256(
             canonical(
@@ -158,6 +159,8 @@ class JobService:
             target_config = {
                 name: getattr(target, name)
                 for name in (
+                    "id",
+                    "project_id",
                     "name",
                     "endpoint_url",
                     "http_method",
@@ -208,11 +211,11 @@ class JobService:
 
     def cancel(self, run_id: int) -> EvaluationRun:
         self._lock()
+        run = self.evaluations.get_run(run_id)
         job = self.db.get(EvaluationJob, run_id)
         if job is None:
             self.db.rollback()
             raise ResourceNotFoundError("Queued evaluation not found.")
-        run = self.evaluations.get_run(run_id)
         if job.state != "done":
             self._terminal(job, run, EvaluationStatus.CANCELLED, time.time())
         self.db.commit()
@@ -244,7 +247,14 @@ class JobService:
             )
         )
         for job in jobs:
-            if job.deadline <= now:
+            if not self._valid_owner(job):
+                self._terminal(
+                    job,
+                    self.db.get(EvaluationRun, job.run_id),
+                    EvaluationStatus.FAILED,
+                    now,
+                )
+            elif job.deadline <= now:
                 self._terminal(
                     job,
                     self.evaluations.get_run(job.run_id),
@@ -303,11 +313,32 @@ class JobService:
     def _backoff(attempt):
         return min(2**attempt, 30) + SystemRandom().uniform(0, 1)
 
+    def _valid_owner(self, job) -> bool:
+        target = self.db.get(TargetApplication, job.target_id)
+        run = self.db.get(EvaluationRun, job.run_id)
+        payload = job.payload or {}
+        frozen = payload.get("target", {})
+        runtime = payload.get("judge_runtime", {})
+        return bool(
+            target
+            and target.ownership
+            and run
+            and run.target_application_id == target.id
+            and frozen.get("id") == target.id
+            and frozen.get("project_id") == target.project_id
+            and (
+                not runtime
+                or runtime.get("project_namespace")
+                == target.ownership.project.cache_namespace
+            )
+        )
+
     def active(self, claim: Claim) -> bool:
         self.db.expire_all()
         job = self.db.get(EvaluationJob, claim.run_id)
         active = bool(
             job
+            and self._valid_owner(job)
             and job.state == "leased"
             and job.token == claim.token
             and job.lease_until > time.time()
@@ -329,6 +360,7 @@ class JobService:
         job = self.db.get(EvaluationJob, claim.run_id)
         if (
             not job
+            or not self._valid_owner(job)
             or job.state != "leased"
             or job.token != claim.token
             or job.lease_until <= now

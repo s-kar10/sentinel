@@ -111,7 +111,7 @@ function unwrapEntity<T>(payload: T | { data: T }): T {
 
 export const api = {
   accessStatus: () => request<{ mode: 'local' | 'token' }>('/auth/status'),
-  accessIdentity: () => request<{ name: string; role: string; token_id: number | null }>('/auth/me'),
+  accessIdentity: () => request<{ name: string; role: string; token_id: number | null; project_name: string; organization_name: string }>('/auth/me'),
   health: () => request<HealthResponse>('/health'),
 
   listTargets: async () => {

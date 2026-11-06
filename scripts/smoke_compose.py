@@ -211,6 +211,8 @@ def exercise_access(stack, backend):
         "-m",
         "app.auth.cli",
         "issue",
+        "--project-id",
+        "1",
         "--name",
         "Compose operator",
         "--role",

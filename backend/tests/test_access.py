@@ -166,6 +166,10 @@ def test_roles_run_the_same_authorized_target_workflow(
             "name": role,
             "role": role,
             "token_id": tokens[role][0],
+            "project_id": 1,
+            "project_name": "Legacy project",
+            "organization_id": 1,
+            "organization_name": "Legacy installation",
         }
         assert tokens[role][1] not in identity.text
         assert identity.headers["cache-control"] == "no-store"
@@ -284,7 +288,17 @@ def test_cli_private_file_no_echo_listing_revocation_and_rollback(
 ):
     monkeypatch.setattr(cli, "build_engine", lambda _: test_engine)
     output = tmp_path / "credential"
-    args = ["issue", "--name", "operator", "--role", "admin", "--output", str(output)]
+    args = [
+        "issue",
+        "--project-id",
+        "1",
+        "--name",
+        "operator",
+        "--role",
+        "admin",
+        "--output",
+        str(output),
+    ]
     assert cli.main(args) == 0
     value = output.read_text().strip()
     assert os.stat(output).st_mode & 0o777 == 0o600

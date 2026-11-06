@@ -5,7 +5,7 @@ import { ErrorState, PageLoader } from './AsyncState'
 
 export function AccessGate({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<'local' | 'token' | null>(null)
-  const [identity, setIdentity] = useState<{ name: string; role: string } | null>(null)
+  const [identity, setIdentity] = useState<{ name: string; role: string; project_name: string; organization_name: string } | null>(null)
   const [value, setValue] = useState('')
   const [error, setError] = useState('')
   const [loadingError, setLoadingError] = useState('')
@@ -60,7 +60,7 @@ export function AccessGate({ children }: { children: ReactNode }) {
   </main>
   return <>
     <div className="access-banner" role="region" aria-label="Current access">
-      <span>{identity.name} · {identity.role}</span>
+      <span>{identity.name} · {identity.role} · {identity.organization_name} / {identity.project_name}</span>
       <button type="button" className="button button--secondary button--small" onClick={() => endAccess()}>Sign out</button>
     </div>
     {children}

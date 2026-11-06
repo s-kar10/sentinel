@@ -82,7 +82,7 @@ per-case checkpoints when changing execution. Run PostgreSQL queue tests as well
 as SQLite tests for coordination changes. The deprecated synchronous endpoint
 retains compatibility but has no queue limits/recovery.
 
-Current schema head is `0005_access_tokens`; stop API and workers before migrations.
+Current schema head is `0006_projects`; stop API and workers before migrations.
 Keep baseline references immutable and distinguish paired behavioral changes from
 errors/missing coverage. Do not claim significance from descriptive repeat rules.
 See [ASYNC_HISTORY.md](docs/ASYNC_HISTORY.md) for exact contracts and limitations.
@@ -117,7 +117,11 @@ sync; new paths must default to denied. Never copy operator bearer tokens into
 target/worker payloads, logs or browser persistence. Token mode disables the legacy
 synchronous evaluator. Run the additional authenticated browser suite with
 `(cd frontend && SENTINEL_BROWSER_AUTH=1 npm run test:e2e)`. Follow
-[ACCESS_CONTROL.md](docs/ACCESS_CONTROL.md) and migration 0005. This is not tenant
-isolation: organization/project ownership, encrypted target/provider credentials,
-egress policy and the full security review are unfinished. Do not claim Phase 6
+[ACCESS_CONTROL.md](docs/ACCESS_CONTROL.md) and migration 0006. P6-2 scopes tokens,
+resources, jobs and judgment-cache namespaces to projects; follow
+[PROJECT_ISOLATION.md](docs/PROJECT_ISOLATION.md). Preserve legacy adoption, scoped
+request sessions, default denial for unbound resources and frozen job ownership
+checks. Run project isolation tests on both SQLite and PostgreSQL. Human identity/
+memberships, encrypted target/provider credentials, egress policy and the full
+security review are unfinished. Do not claim Phase 6
 complete or expose the service publicly.

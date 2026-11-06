@@ -156,7 +156,9 @@ Native default: `backend/.sentinel-judge-cache.sqlite3` when started from `backe
 storage. Compose uses `/tmp/sentinel-judge-cache.sqlite3` inside each container;
 it survives worker process restarts but not container replacement. Separate worker
 containers have separate caches. Mount a private writable path only if shared
-local caching is needed. It has no tenant isolation; do not expose this MVP publicly.
+local caching is needed. P6-2 adds private project namespaces to cache keys; the
+file, capacity and provider credentials remain shared infrastructure. See
+[project boundaries](PROJECT_ISOLATION.md); public exposure remains blocked.
 
 Historical compatibility includes judge definitions and operator policy. Analysis
 version `history-v2` flags cached judgments and excludes them from repeated-run

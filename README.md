@@ -35,7 +35,7 @@ pipeline. Neither the application nor the demo is intended for public hosting ye
   [completed work versus remaining work](docs/ROADMAP.md).
 - **Boundaries:** [security risks and deployment limitations](docs/SECURITY.md).
 
-The test suite covers 337 backend cases, 34 demo tests and 27 Chromium workflows.
+The test suite covers 353 backend cases, 34 demo tests and 28 Chromium workflows.
 Verification results and the deferred live OpenAI calibration are recorded in the
 roadmap.
 
@@ -335,10 +335,12 @@ ambiguous starting point. A protected-value create request has the shape
 The default local mode preserves the guided demo. Phase 6 now offers
 `AUTH_MODE=token` with revocable, expiring reader/runner/admin credentials and
 browser sign-in. Follow [access setup and rotation](docs/ACCESS_CONTROL.md) after
-applying migration `0005_access_tokens`. Tokens are issued to private files by a
+applying migration `0006_projects`. Tokens are issued to private files by a
 local CLI; browser storage is memory-only. Token mode requires queued evaluations
-and disables the deprecated synchronous endpoint. This is one installation's access
-gate, not multi-user isolation or permission to expose the MVP publicly.
+and disables the deprecated synchronous endpoint. Each token is bound to one project;
+[project setup and isolation](docs/PROJECT_ISOLATION.md) explains organizations, legacy
+adoption, and API/worker/cache boundaries. Human accounts and other Phase 6 security
+gates remain unfinished; this does not authorize public exposure.
 
 ## How evaluations work
 
@@ -531,8 +533,8 @@ report, shows a warning, and retries while the run remains pending/running.
   through the API; there is no pack editor, scheduling, model-assisted generation,
   or automatic deployment gates. Saved versioned snapshots are redacted and cannot
   guarantee identical responses from a live target.
-- Optional operator tokens enforce installation-wide API roles; local mode remains
-  unauthenticated. There is no multi-tenancy, comprehensive request audit, API submission quotas,
+- Optional operator tokens enforce project-scoped API roles; local mode remains
+  unauthenticated within the legacy project. Human memberships, comprehensive request audit, API submission quotas,
   or encrypted secret storage.
 - The original score weights checks equally. Additive severity-weighted rates must
   be read alongside coverage; neither score certifies security.

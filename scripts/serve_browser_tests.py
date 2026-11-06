@@ -74,12 +74,22 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from app.database.session import engine
 from app.models.access import AccessToken
+from app.models.project import Organization, Project
 from app.auth.tokens import digest
 with Session(engine) as db:
     for role, marker in [('admin', 'A'), ('reader', 'R')]:
         db.add(AccessToken(name='Browser ' + role, role=role,
             digest=digest('snt_' + marker * 43),
             expires_at=datetime.now(timezone.utc) + timedelta(hours=1)))
+    org = Organization(name='Browser other organization')
+    db.add(org)
+    db.flush()
+    project = Project(name='Browser other project', organization_id=org.id)
+    db.add(project)
+    db.flush()
+    db.add(AccessToken(name='Browser other admin', role='admin', project_id=project.id,
+        digest=digest('snt_' + 'B' * 43),
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=1)))
     db.commit()
 """,
                     ],
