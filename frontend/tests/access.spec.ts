@@ -99,3 +99,36 @@ test('a late response from signed-out access cannot clear the next identity', as
   await expect(page.getByRole('region', { name: 'Current access' })).toContainText('Browser reader · reader')
   await expect(page.getByRole('heading', { name: 'No targets registered' })).toBeVisible()
 })
+
+test('switching project tokens clears prior data and blocks direct report access', async ({ page, request }) => {
+  const other = `snt_${'B'.repeat(43)}`
+  const auth = { Authorization: `Bearer ${other}` }
+  const response = await request.post(`${API}/targets`, { headers: auth, data: {
+    name: 'Other project private target', endpoint_url: 'http://127.0.0.1:18001/security/safe',
+    request_template: { message: '' }, prompt_field: 'message', response_field: 'response',
+  } })
+  expect(response.status()).toBe(201)
+  const target = await response.json()
+  try {
+    const packs = await (await request.get(`${API}/attack-packs`, { headers: auth })).json()
+    const run = await (await request.post(`${API}/targets/${target.id}/evaluation-jobs`, {
+      headers: auth, data: { attack_pack: packs.find((pack: { id: string }) => pack.id === 'sentinel-action-boundaries') },
+    })).json()
+    await page.goto('/targets')
+    await signIn(page, other)
+    await expect(page.getByRole('region', { name: 'Current access' })).toContainText('Browser other organization / Browser other project')
+    await expect(page.getByRole('link', { name: target.name, exact: true })).toBeVisible()
+    await page.goto(`/evaluations/${run.id}`)
+    await signIn(page, other)
+    await expect(page.getByRole('heading', { name: 'Evaluation completed', exact: true })).toBeVisible({ timeout: 20_000 })
+    await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+    await signIn(page, admin)
+    await expect(page.locator('.finding')).toHaveCount(0)
+    await expect(page.getByText(target.name, { exact: true })).toHaveCount(0)
+    expect((await request.get(`${API}/evaluations/${run.id}`, { headers: { Authorization: `Bearer ${admin}` } })).status()).toBe(404)
+    await page.getByRole('link', { name: 'Targets', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'No targets registered' })).toBeVisible()
+  } finally {
+    await request.delete(`${API}/targets/${target.id}`, { headers: auth })
+  }
+})

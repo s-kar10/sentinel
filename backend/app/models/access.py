@@ -3,9 +3,10 @@
 from datetime import datetime
 
 from sqlalchemy import CheckConstraint, DateTime, String, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
+from app.models.project import TokenProject
 
 
 class AccessToken(Base):
@@ -15,6 +16,18 @@ class AccessToken(Base):
             "role IN ('reader', 'runner', 'admin')", name="ck_access_token_role"
         ),
     )
+
+    ownership: Mapped[TokenProject | None] = relationship(
+        cascade="all, delete-orphan", uselist=False, lazy="joined", passive_deletes=True
+    )
+
+    def __init__(self, *, project_id=1, **kwargs):
+        super().__init__(**kwargs)
+        self.ownership = TokenProject(project_id=project_id)
+
+    @property
+    def project_id(self) -> int | None:
+        return self.ownership.project_id if self.ownership else None
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)

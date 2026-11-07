@@ -21,4 +21,8 @@ def auth_me(request: Request, settings: ApplicationSettings):
         "name": principal.name,
         "role": principal.role,
         "token_id": principal.token_id,
+        "project_id": principal.project_id,
+        "project_name": principal.project_name,
+        "organization_id": principal.organization_id,
+        "organization_name": principal.organization_name,
     }

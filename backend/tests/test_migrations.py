@@ -132,6 +132,13 @@ def seed_records(engine) -> tuple[int, int]:
                 duration_ms=12,
             )
         )
+        if "target_projects" in sa.inspect(connection).get_table_names():
+            connection.execute(
+                sa.text(
+                    "INSERT INTO target_projects (target_id, project_id) VALUES (:target, 1)"
+                ),
+                {"target": target_id},
+            )
     return target_id, run_id
 
 

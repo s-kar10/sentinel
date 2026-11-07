@@ -1,10 +1,11 @@
-# Operator access control — Phase 6 milestone 1
+# Operator access control — Phase 6 milestones 1–2
 
-This increment adds authentication and role-based API permissions for a **single
-trusted operator installation**. It does not complete Phase 6. All authorized
-readers see the same targets and evidence. There are no tenant memberships,
-project isolation, human account passwords, SSO or public registration yet.
-Public deployment remains blocked by the remaining Phase 6 requirements.
+Token authentication and reader/runner/admin permissions now apply to one project
+per token. Organizations own projects; all readers **within a project** see that
+project's targets and evidence. See [project isolation](PROJECT_ISOLATION.md) for
+provisioning, legacy adoption, query/worker/cache enforcement and remaining limits.
+Human accounts, memberships and public registration are not implemented. Phase 6
+is not complete; public deployment remains blocked.
 
 ## Modes and migration
 
@@ -20,10 +21,9 @@ allowed origin does not authenticate a request. Health, readiness and access-mod
 discovery remain public and contain no application records.
 
 Back up and stop API/workers before applying Alembic revision
-`0005_access_tokens`, following [MIGRATIONS.md](MIGRATIONS.md). It adds token-hash
-and credential-lifecycle tables without changing existing targets, jobs, history
-or evidence. Startup still never creates tables. The migration creates no token
-and grants nobody access. Operator provisioning is an explicit local CLI action.
+`0006_projects`, following [MIGRATIONS.md](MIGRATIONS.md). Revision 0005 adds token hashes/lifecycle records; 0006 binds existing targets
+and tokens to the legacy project and adds scope to pending private jobs. Startup
+still never creates tables. No new token is created or granted access. Operator provisioning is an explicit local CLI action.
 
 ## Provision and use a token
 
@@ -32,7 +32,7 @@ from `backend` after upgrading the schema:
 
 ```sh
 ../.venv/bin/python -m app.auth.cli issue \
-  --name 'Local operator' --role admin --days 7 \
+  --project-id 1 --name 'Local operator' --role admin --days 7 \
   --output /tmp/sentinel-operator-token
 ```
 
@@ -58,7 +58,7 @@ For a Compose installation, provision in the backend container after migration:
 
 ```sh
 docker compose exec -T backend python -m app.auth.cli issue \
-  --name 'Local operator' --role admin --days 7 \
+  --project-id 1 --name 'Local operator' --role admin --days 7 \
   --output /tmp/sentinel-operator-token
 ```
 
@@ -89,7 +89,7 @@ fetch `/openapi.json`, which declares the bearer scheme.
 Every token has one fixed role and a required expiry: default 7 days, configurable
 1–90 days. Names are operator labels, not verified human identities. Reader access
 includes potentially sensitive saved evidence; do not issue it to users who are
-not trusted with the entire installation. Runner access can incur target/provider
+not trusted with the entire project. Runner access can incur target/provider
 requests and cost. Admin access can change outbound targets and therefore is
 especially privileged while destination policy is still pending.
 
@@ -133,9 +133,9 @@ populate the next session or clear its credentials.
 
 ## Security boundaries still open
 
-Token authentication does not create tenant isolation. Worker jobs/caches remain
-installation-wide, target/provider credentials remain plaintext in existing
-storage, arbitrary accepted outbound target URLs remain reachable, and global
+Project ownership now scopes API data, jobs and judgment-cache keys. Infrastructure
+remains shared, target/provider credentials remain plaintext in existing storage,
+arbitrary accepted outbound target URLs remain reachable, and global
 submission/body/storage quotas are incomplete. In-memory browser tokens reduce
 persistence but cannot withstand active same-origin script execution or a
 compromised browser/host. API clients and browser tooling can still record their
@@ -143,9 +143,9 @@ own headers; never collect real tokens in test traces or logs.
 
 No new dependency was added. Read the staged identity/ownership design in
 [ADR-017](DECISIONS.md#adr-017--operator-access-first-with-an-explicit-path-to-tenant-identity).
-The next Phase 6 milestone is organization/project ownership with cross-tenant
-API/worker/cache tests, followed by secure target/provider secret storage and
-network/resource policy. None of those is marked complete by this gate.
+Project ownership is implemented in [P6-2](PROJECT_ISOLATION.md). Human identity and
+memberships, secure target/provider secret storage, and network/resource policy
+remain open Phase 6 work.
 
 ## Verification
 

@@ -68,6 +68,7 @@ def create_app(
         redoc_url="/redoc" if resolved_settings.auth_mode == "local" else None,
     )
     application.state.database_engine = resolved_engine
+    application.state.settings = resolved_settings
     application.add_middleware(
         AccessMiddleware,
         engine=resolved_engine,

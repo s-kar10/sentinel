@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
@@ -12,7 +12,22 @@ from app.services.evaluation_service import EvaluationService
 from app.services.target_client import TargetClient
 from app.services.target_service import TargetService
 
-DatabaseSession = Annotated[Session, Depends(get_db)]
+
+def scoped_db(request: Request, db: Annotated[Session, Depends(get_db)]) -> Session:
+    # Use app settings, never a client-supplied project selector. Missing token
+    # identity fails closed even if a future route accidentally skips middleware.
+    if request.app.state.settings.auth_mode == "local":
+        project_id = 1
+    else:
+        principal = getattr(request.state, "principal", None)
+        if principal is None:
+            raise HTTPException(401, "A valid access token is required.")
+        project_id = principal.project_id
+    db.info["project_id"] = project_id
+    return db
+
+
+DatabaseSession = Annotated[Session, Depends(scoped_db)]
 ApplicationSettings = Annotated[Settings, Depends(get_settings)]
 
 

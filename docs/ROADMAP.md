@@ -15,8 +15,9 @@ finish the next two entire phases.
 Phase 4 is implemented and locally verified; live OpenAI calibration is explicitly
 deferred by the user. Phase 5 is implemented and verified with controlled fixtures.
 **Current implementation phase: Phase 6 — Authentication, organizations, and secure secrets.**
-P6-1 operator access is implemented; tenancy, secure target/provider secrets, network
-policy and the full security review remain unfinished. Public deployment stays blocked.
+P6-1 operator access and P6-2 project-scoped resources/jobs/cache keys are implemented.
+Human identity/memberships, secure target/provider secrets, network/resource policy
+and the full security review remain unfinished. Public deployment stays blocked.
 Phase 0's previously pending automated external verification is recorded below.
 Repository: [s-kar10/sentinel](https://github.com/s-kar10/sentinel), public source
 with `main` as the primary branch. Credentials, local databases and generated
@@ -53,7 +54,7 @@ no Compose services were running for a live stack check (see
 | 3 | Historical analytics and regression detection | Complete locally; immutable baselines, version labels, comparisons, trends and descriptive repeat policy verified |
 | 4 | LLM-based evaluation | Implemented and locally verified; live OpenAI calibration deferred by user |
 | 5 | Real security testing | Complete locally; versioned synthetic packs, safe/vulnerable fixtures, browser and Compose verified |
-| 6 | Authentication, organizations, secure secrets | In progress; P6-1 operator access implemented, remaining security gates open |
+| 6 | Authentication, organizations, secure secrets | In progress; P6-1 access and P6-2 project isolation implemented, remaining security gates open |
 | 7 | GitHub and CI/CD integration | Planned |
 | 8 | Observability and production reliability | Planned; liveness and database readiness exist |
 | 9 | Public API and SDK | Planned; unversioned REST/OpenAPI exists |
@@ -687,7 +688,7 @@ ports are accepted and live listeners are rejected on macOS and Linux. The curre
 backend suite has **337 tests**. Final hosted results are tracked in the PR; local
 results alone are not hosted verification. Only desktop Chromium is tested; live judge calibration remains deferred.
 
-**Still unfinished:** Phase 6 is not complete. All operator tokens share the same
+**P6-1 limitations at delivery (project scope superseded by P6-2 below):** All operator tokens share the same
 installation dataset; there are no human users, organization/project memberships,
 tenant-scoped workers/caches or encrypted target/provider secret storage. Network
 policy, retention, abuse limits and a complete security review remain required.
@@ -696,9 +697,58 @@ lifecycle records are not a complete request/actor audit trail. The local defaul
 remains unauthenticated and is allowed only with the development environment setting.
 Public exposure is still prohibited. See [ACCESS_CONTROL.md](ACCESS_CONTROL.md).
 
-**Next task within Phase 6:** implement organization/project ownership and scoped
-resource access, then prove negative cross-tenant behavior across APIs, queue jobs,
-baselines, comparisons and judgment caches. Do not begin Phase 7.
+### P6-2 — Project-scoped operator resources and execution (2026-11-06)
+
+- [x] Organizations/projects with one immutable application binding per target/token;
+  local CLI provisioning and explicit token project selection. Human memberships
+  remain planned, not implied by organization records.
+- [x] Scope target CRUD, protected values, runs/results, cancellation, idempotency,
+  baselines, comparisons and analytics; deny missing/foreign bindings.
+- [x] Freeze target/project identity into queued work and verify ownership at dispatch,
+  lease checks and checkpoint writes. Namespace semantic judgment caching by project.
+- [x] Adopt existing data/tokens/pending jobs into one legacy project through additive
+  revision 0006; retain evidence and refuse unsafe multi-project downgrades.
+- [x] Show project identity in the browser and verify that changing tokens clears
+  prior report data and blocks access to its target/report.
+
+**Implementation:** See [PROJECT_ISOLATION.md](PROJECT_ISOLATION.md) and ADR-018.
+Project scoping is derived from authenticated identity, not supplied headers or body
+fields. Tokens grant one project's role; sibling projects remain isolated even in
+the same organization. Unbound resources are inaccessible. Local development is
+limited to legacy project 1. Organization/project creation remains a trusted local
+CLI operation. No dependency, human login, public registration or transfer API added.
+
+**Verification:** 353 backend tests (SQLite and disposable PostgreSQL), 34 demo tests,
+23 existing and 5 authenticated Chromium workflows passed. Tests exercise all current
+resource paths, both organization/sibling-project boundaries, direct and indirect
+ID guesses, idempotency, frozen worker ownership, real owned target/provider children,
+cache separation, private CLI output and upgrade/downgrade preservation/refusal.
+Locks/pip/Ruff, frontend lint/type/build and Compose configuration passed. Full
+Compose smoke passed demo/security-pack/restart/outage/revocation/deletion paths
+and removed its disposable resources. After the final indistinguishable-404
+refinement, 63 affected service/queue/project tests passed again on both databases.
+Initial hosted Python/Compose checks passed. Browser runs exposed missing completion
+waits in the existing eight-case extraction and main CRUD workflows. Both now wait
+up to 20 seconds for the completed status before asserting unchanged verdicts/counts.
+A previously observed queue timing test also failed in hosted SQLite: it measured
+executor callback starts rather than the documented admission limit. It now checks
+persisted lease admission times at the full 0.5-second interval, retaining workload
+completion/concurrency checks; the deterministic rate test also rejects 0.499 seconds.
+Final hosted results are tracked in the PR; local checks alone are not hosted evidence.
+Developer databases and `.env` files were not changed. Existing deprecation and
+browser teardown warnings remain visible; only desktop Chromium is verified.
+Live model calibration remains deferred.
+
+**Still unfinished:** Human identity/OIDC and organization/project memberships,
+encrypted target/provider credentials, egress policy, evidence retention, quotas,
+complete audit and security review. Infrastructure and provider credentials remain
+shared; project isolation does not prevent capacity contention or a trusted host/DB
+operator from accessing all data. Phase 6 is not complete; public exposure remains
+blocked.
+
+**Next task within Phase 6:** implement secure target/provider credential storage
+with key management, rotation, migration and leakage tests. Human identity/membership
+integration and network/resource gates remain tracked above. Do not begin Phase 7.
 
 ## Phase 7 — GitHub and CI/CD integration
 
