@@ -1,9 +1,10 @@
 """Private durable dispatch state. Never serialize these models to API responses."""
 
-from sqlalchemy import JSON, Float, ForeignKey, Integer, String
+from sqlalchemy import Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database.base import Base
+from app.secrets.types import EncryptedPayload
 
 
 class QueueControl(Base):
@@ -22,7 +23,7 @@ class EvaluationJob(Base):
     )
     idempotency_key: Mapped[str | None] = mapped_column(String(64), unique=True)
     request_digest: Mapped[str] = mapped_column(String(64), nullable=False)
-    payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    payload: Mapped[dict | None] = mapped_column(EncryptedPayload(), nullable=True)
     cursor: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     available_at: Mapped[float] = mapped_column(Float, nullable=False, default=0)

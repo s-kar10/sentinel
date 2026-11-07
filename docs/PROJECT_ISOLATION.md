@@ -8,13 +8,13 @@ projects in the same organization are just as isolated at the API as projects in
 different organizations.
 
 This is an application authorization boundary for trusted local installations.
-Human accounts, memberships, OIDC, encrypted credentials, outbound destination
+Human accounts, memberships, OIDC, provider credential management, outbound destination
 policy, per-project quotas and a full security review remain unfinished. Phase 6
 is not complete and public deployment remains blocked.
 
 ## Upgrade and provision
 
-Back up and stop both API and workers before upgrading to `0006_projects` using
+Back up and stop both API and workers before upgrading to current head `0007_encrypted_credentials` using
 [MIGRATIONS.md](MIGRATIONS.md). The migration creates `organizations`, `projects`,
 `target_projects` and `token_projects`. The latter two tables give each target/token
 one binding, with foreign keys and a project index. This additive approach avoids

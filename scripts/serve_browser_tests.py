@@ -42,6 +42,9 @@ def main():
                     "PYTHONPATH",
                     "AUTH_",
                     "APP_ENVIRONMENT",
+                    "SECRET_",
+                    "OPENAI_",
+                    "JUDGE_",
                 )
             )
         }
@@ -50,12 +53,26 @@ def main():
             if os.environ.get("SENTINEL_BROWSER_AUTH") == "1"
             else "local",
             APP_ENVIRONMENT="development",
+            SECRET_KEYRING_FILE=f"{directory}/keyring.json",
             DATABASE_URL=f"sqlite:///{directory}/test.db",
             CORS_ORIGINS="http://127.0.0.1:18473",
             PYTHONPATH=str(ROOT / "backend"),
             TARGET_REQUEST_TIMEOUT_SECONDS="2",
         )
         try:
+            subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "app.secrets.cli",
+                    "init",
+                    "--output",
+                    env["SECRET_KEYRING_FILE"],
+                ],
+                cwd=directory,
+                env=env,
+                check=True,
+            )
             subprocess.run(
                 [sys.executable, "-m", "app.database.migrations", "upgrade"],
                 cwd=directory,

@@ -376,12 +376,19 @@ def test_project_migration_preserves_legacy_data_and_pending_jobs(migration_engi
             "target": {"name": "Legacy"},
             "judge_runtime": {"api_key": "FAKE", "enabled": True},
         }
-        jobs = EvaluationJob.__table__
+        from sqlalchemy import MetaData, Table
+
+        jobs = Table("evaluation_jobs", MetaData(), autoload_with=db)
         db.execute(
             jobs.insert().values(
                 run_id=rid,
                 target_id=tid,
                 request_digest="fake",
+                cursor=0,
+                attempts=0,
+                available_at=0,
+                lease_until=0,
+                state="queued",
                 payload=payload,
                 deadline=time.time() + 100,
             )
@@ -403,6 +410,9 @@ def test_project_migration_preserves_legacy_data_and_pending_jobs(migration_engi
             db.commit()
         db.rollback()
     with migration_engine.begin() as db:
+        # New encryption gate refuses reverting credentials to plaintext.
+        db.execute(text("UPDATE target_applications SET api_key = NULL"))
+        db.execute(text("UPDATE evaluation_jobs SET payload = NULL"))
         command.downgrade(migration_config(db), "0005_access_tokens")
     migrate(migration_engine, "upgrade")
     with Session(migration_engine) as db:

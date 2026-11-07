@@ -35,7 +35,7 @@ pipeline. Neither the application nor the demo is intended for public hosting ye
   [completed work versus remaining work](docs/ROADMAP.md).
 - **Boundaries:** [security risks and deployment limitations](docs/SECURITY.md).
 
-The test suite covers 353 backend cases, 34 demo tests and 28 Chromium workflows.
+The test suite covers 375 backend cases, 34 demo tests and 28 Chromium workflows.
 Verification results and the deferred live OpenAI calibration are recorded in the
 roadmap.
 
@@ -47,6 +47,7 @@ Project documentation:
 - [Custom attack packs and API examples](docs/ATTACK_PACKS.md)
 - [Security packs, controlled fixtures and category mappings](docs/SECURITY_PACKS.md)
 - [Operator tokens, API permissions and remaining Phase 6 boundaries](docs/ACCESS_CONTROL.md)
+- [Encrypted credentials, key backups and rotation](docs/SECRET_STORAGE.md)
 - [Background jobs, versioned baselines and historical comparisons](docs/ASYNC_HISTORY.md)
 - [Engine V2: assertions, outcomes, scoring and runnable example](docs/ENGINE_V2.md)
 - [Optional OpenAI judging, setup, calibration and limitations](docs/LLM_EVALUATION.md)
@@ -138,11 +139,14 @@ Prerequisites are Git, Docker Engine (or Docker Desktop) and Docker Compose v2.
 ```bash
 git clone https://github.com/s-kar10/sentinel.git
 cd sentinel
+docker compose run --rm --build --no-deps key-init
 docker compose up --build --wait
 ```
 
 For a new setup, copying `.env.example` to `.env` is optional; Compose has the same
-development defaults. Preserve any existing `.env`. Compose runs a one-shot
+development defaults. Preserve any existing `.env` and keyring. Run `key-init`
+only once; it refuses to overwrite keys. Existing installations must stop API/workers
+and back up before the [encrypted-storage upgrade](docs/SECRET_STORAGE.md). Compose runs a one-shot
 `migrate` service after PostgreSQL becomes healthy and starts the API only after
 migration succeeds. `docker compose ps -a` should show `migrate` exited with code 0
 and five long-running services: four with health checks, plus the worker running. Then open
@@ -157,7 +161,8 @@ The API exposes two operational checks:
 
 - `GET /health`: **liveness** — the API process can respond.
 - `GET /ready`: **readiness** — its database is reachable and the recorded
-  migration revision matches the code. Returns HTTP 503 if either check fails.
+  migration revision matches the code, and its private keyring is valid. Returns
+  HTTP 503 if a check fails; this does not verify every stored ciphertext.
 
 Compose checks `/ready` before starting the frontend. If PostgreSQL goes down
 later, `/health` can still return 200 while `/ready` returns 503. An unhealthy
@@ -184,7 +189,7 @@ browser-reachable URL and rebuild the frontend. If `FRONTEND_PORT` changes, incl
 the new origin in `CORS_ORIGINS`.
 
 Stop containers while retaining data with `docker compose down`. To also delete the
-local PostgreSQL volume and all Sentinel records, use `docker compose down --volumes`.
+local PostgreSQL volume, encryption-key volume and all Sentinel records, use `docker compose down --volumes`.
 
 ### Test the complete stack without touching your data
 
@@ -211,6 +216,9 @@ Use four terminals, starting each at the project root:
 ```bash
 # Terminal 1: SQLite backend (for a fresh database)
 cd backend
+mkdir -m 700 -p .secrets
+# First setup only; preserve an existing keyring.
+../.venv/bin/python -m app.secrets.cli init --output .secrets/keyring.json
 ../.venv/bin/python -m app.database.migrations upgrade
 ../.venv/bin/python -m uvicorn app.main:app --reload --port 8000
 ```
@@ -335,7 +343,7 @@ ambiguous starting point. A protected-value create request has the shape
 The default local mode preserves the guided demo. Phase 6 now offers
 `AUTH_MODE=token` with revocable, expiring reader/runner/admin credentials and
 browser sign-in. Follow [access setup and rotation](docs/ACCESS_CONTROL.md) after
-applying migration `0006_projects`. Tokens are issued to private files by a
+applying migration `0007_encrypted_credentials`. Tokens are issued to private files by a
 local CLI; browser storage is memory-only. Token mode requires queued evaluations
 and disables the deprecated synchronous endpoint. Each token is bound to one project;
 [project setup and isolation](docs/PROJECT_ISOLATION.md) explains organizations, legacy
@@ -504,11 +512,11 @@ report, shows a warning, and retries while the run remains pending/running.
 - The demo target is intentionally unsafe and must never be internet-exposed or used
   as a template for customer-facing behavior. Every included credential-like value is
   fake.
-- API keys are not logged or returned after creation, but the MVP stores them as plain
-  text in the database and active private jobs. New evidence redacts known keys
-  and canaries; unknown/encoded secrets and historical raw text can remain.
-  A production release must use envelope encryption or external
-  secret-manager references, key rotation, and access auditing.
+- Target API keys and private job payloads (including frozen provider keys) are
+  encrypted at rest. Keep the private keyring separate from database backups;
+  see [setup and rotation](docs/SECRET_STORAGE.md). Canary rows, templates and
+  historical evidence can still be sensitive, and old backups can retain plaintext.
+  Host/process access, credential audits and provider provisioning remain security work.
 - Allowing users to configure arbitrary endpoint URLs creates server-side request
   forgery and network-scanning risk in a multi-user deployment. Production must add
   tenant-scoped authentication/authorization, DNS/IP validation, egress policy,
@@ -535,7 +543,7 @@ report, shows a warning, and retries while the run remains pending/running.
   guarantee identical responses from a live target.
 - Optional operator tokens enforce project-scoped API roles; local mode remains
   unauthenticated within the legacy project. Human memberships, comprehensive request audit, API submission quotas,
-  or encrypted secret storage.
+  and provider credential management remain unfinished.
 - The original score weights checks equally. Additive severity-weighted rates must
   be read alongside coverage; neither score certifies security.
 - Versioned migrations and guarded V0.1 adoption exist. Production deployment,
@@ -550,8 +558,9 @@ implementation and automated fresh-checkout verification have passed locally and
 on GitHub Actions. Phases 1–3 are implemented and verified;
 Phase 4's optional OpenAI evaluator is implemented and locally verified. Live-model
 calibration remains deferred. Phase 5 adds verified synthetic security packs;
-Phase 6 has started with optional operator tokens and API permissions; tenant
-isolation, encrypted target/provider secrets and network policy remain unfinished.
+Phase 6 implements operator tokens, project isolation and encrypted credential
+storage. Human memberships, provider credential management, network/resource
+policy and the complete security review remain unfinished.
 
 Multi-user security, GitHub gates, observability, SDKs and
 cloud deployment follow in separate phases. See the roadmap for acceptance criteria.

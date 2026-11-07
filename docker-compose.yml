@@ -36,11 +36,23 @@ services:
       start_period: 5s
     restart: unless-stopped
 
+  key-init:
+    profiles: ["tools"]
+    build:
+      context: ./backend
+    command: ["python", "-m", "app.secrets.cli", "init", "--output", "/run/sentinel-secrets/keyring.json"]
+    volumes:
+      - secret_keys:/run/sentinel-secrets
+    restart: "no"
+
   migrate:
     build:
       context: ./backend
     command: ["python", "-m", "app.database.migrations", "upgrade"]
+    volumes: &secret-volumes
+      - secret_keys:/run/sentinel-secrets:ro
     environment: &backend-environment
+      SECRET_KEYRING_FILE: ${SECRET_KEYRING_FILE:-/run/sentinel-secrets/keyring.json}
       AUTH_MODE: ${AUTH_MODE:-local}
       APP_ENVIRONMENT: ${APP_ENVIRONMENT:-development}
       DATABASE_HOST: postgres
@@ -67,6 +79,7 @@ services:
     build:
       context: ./backend
     environment: *backend-environment
+    volumes: *secret-volumes
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
     depends_on:
@@ -91,10 +104,22 @@ services:
       context: ./backend
     command: ["python", "-m", "app.worker"]
     environment: *backend-environment
+    volumes: *secret-volumes
     depends_on:
       migrate:
         condition: service_completed_successfully
     restart: unless-stopped
+
+  key-maintenance:
+    profiles: ["tools"]
+    build:
+      context: ./backend
+    entrypoint: ["python", "-m", "app.secrets.cli"]
+    command: ["verify"]
+    environment: *backend-environment
+    volumes:
+      - secret_keys:/run/sentinel-secrets
+    restart: "no"
 
   frontend:
     build:
@@ -116,3 +141,4 @@ services:
 
 volumes:
   postgres_data:
+  secret_keys:

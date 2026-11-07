@@ -15,9 +15,10 @@ finish the next two entire phases.
 Phase 4 is implemented and locally verified; live OpenAI calibration is explicitly
 deferred by the user. Phase 5 is implemented and verified with controlled fixtures.
 **Current implementation phase: Phase 6 — Authentication, organizations, and secure secrets.**
-P6-1 operator access and P6-2 project-scoped resources/jobs/cache keys are implemented.
-Human identity/memberships, secure target/provider secrets, network/resource policy
-and the full security review remain unfinished. Public deployment stays blocked.
+P6-1 operator access, P6-2 project-scoped resources/jobs/cache keys and P6-3
+encrypted target keys/private job payloads are implemented. Human memberships,
+provider credential management, full credential-access audit, network/resource
+policy and the full security review remain unfinished. Public deployment stays blocked.
 Phase 0's previously pending automated external verification is recorded below.
 Repository: [s-kar10/sentinel](https://github.com/s-kar10/sentinel), public source
 with `main` as the primary branch. Credentials, local databases and generated
@@ -54,7 +55,7 @@ no Compose services were running for a live stack check (see
 | 3 | Historical analytics and regression detection | Complete locally; immutable baselines, version labels, comparisons, trends and descriptive repeat policy verified |
 | 4 | LLM-based evaluation | Implemented and locally verified; live OpenAI calibration deferred by user |
 | 5 | Real security testing | Complete locally; versioned synthetic packs, safe/vulnerable fixtures, browser and Compose verified |
-| 6 | Authentication, organizations, secure secrets | In progress; P6-1 access and P6-2 project isolation implemented, remaining security gates open |
+| 6 | Authentication, organizations, secure secrets | In progress; access, project isolation and encrypted credential storage implemented; remaining security gates open |
 | 7 | GitHub and CI/CD integration | Planned |
 | 8 | Observability and production reliability | Planned; liveness and database readiness exist |
 | 9 | Public API and SDK | Planned; unversioned REST/OpenAPI exists |
@@ -739,16 +740,59 @@ Developer databases and `.env` files were not changed. Existing deprecation and
 browser teardown warnings remain visible; only desktop Chromium is verified.
 Live model calibration remains deferred.
 
-**Still unfinished:** Human identity/OIDC and organization/project memberships,
-encrypted target/provider credentials, egress policy, evidence retention, quotas,
+**P6-2 remaining work at delivery (storage encryption superseded by P6-3 below):**
+Human identity/OIDC and organization/project memberships, encrypted target/provider
+credentials, egress policy, evidence retention, quotas,
 complete audit and security review. Infrastructure and provider credentials remain
 shared; project isolation does not prevent capacity contention or a trusted host/DB
 operator from accessing all data. Phase 6 is not complete; public exposure remains
 blocked.
 
-**Next task within Phase 6:** implement secure target/provider credential storage
-with key management, rotation, migration and leakage tests. Human identity/membership
-integration and network/resource gates remain tracked above. Do not begin Phase 7.
+### P6-3 — Encrypted target keys and private job payloads (2026-11-07)
+
+- [x] Encrypt dedicated target API keys and complete private queue payloads,
+  including frozen provider keys, at the SQL write/read boundary. Reject plaintext,
+  altered ciphertext, unavailable keys and mismatched field purpose.
+- [x] Add a bounded private keyring outside the database, exclusive 0600 CLI
+  initialization, retained-key rotation, transactional re-encryption and verification.
+- [x] Migrate existing keys/pending work through revision 0007 without changing
+  frozen configuration, IDs, ownership, deadlines or report evidence. Refuse
+  plaintext downgrade while encrypted credentials/private payloads remain.
+- [x] Preserve target replacement/clearing, project permissions, queue fencing and
+  terminal payload cleanup. Require a usable keyring at startup/readiness.
+- [x] Isolate native/browser/test keys and Compose key volumes; exclude local
+  keys from Git/build contexts. Document separate backups and offline rotation.
+
+**Implementation:** [SECRET_STORAGE.md](SECRET_STORAGE.md), ADR-019. AES-256-GCM
+uses the pinned `cryptography` dependency, random nonces and authenticated version,
+key ID and field purpose. API response shapes and worker configuration contracts
+are unchanged. Database field types stay compatible; migration 0007 changes their
+stored representation. Provider environment configuration remains installation-wide;
+its frozen database copies are encrypted. This is not a per-project secret manager.
+
+**Verification:** Full Python checks passed with **375 backend tests** on
+SQLite/disposable PostgreSQL and **34 demo tests**. **23 local and 5 authenticated Chromium workflows**,
+frontend lint/type/build, lock/pip/Ruff and Compose configuration passed. The final
+isolated Compose smoke verified encrypted raw SQL fields, key rotation with a pending
+job, resumed execution, demo/security packs, container recreation, outage recovery,
+operator revocation and cleanup of its database/key volumes. Existing Starlette/AnyIO
+deprecation and non-failing browser worker-shutdown warnings remain visible.
+Hosted CI results are tracked in the PR; local checks alone are not hosted evidence. Developer databases, `.env` files and keys were not changed. Live model
+calibration remains deferred; only desktop Chromium is verified.
+
+**Tradeoffs and limits:** Trusted API/worker processes share decryption authority.
+Key loss makes encrypted records unreadable; keys must be backed up separately and
+retained for older backups. Rotation is offline and preserves accepted job keys;
+replacing a target/provider credential affects new submissions, while issuer-side
+revocation and queued cancellation are separate actions. Canary rows, templates,
+evidence and historical backups can still contain plaintext. Host/process compromise,
+DB-writer substitution, full access audits, managed key storage and retention remain
+outside this increment. No secure-erasure or public-deployment claim is made.
+
+**Next task within Phase 6:** project-scoped provider credential provisioning and
+credential lifecycle/access audit, preserving frozen-job semantics and redaction.
+Human identity/OIDC memberships, egress/resource policy, retention and the complete
+security review remain open. Do not begin Phase 7 or expose the service publicly.
 
 ## Phase 7 — GitHub and CI/CD integration
 

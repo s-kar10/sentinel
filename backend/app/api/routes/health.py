@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.database.migrations import SchemaStateError, require_current_schema
+from app.secrets.codec import SecretStorageError, configured_keyring
 
 router = APIRouter(tags=["health"])
 
@@ -40,7 +41,8 @@ def ready(request: Request, response: Response) -> ReadinessResponse:
         require_current_schema(
             request.app.state.database_engine, statement_timeout_ms=2_000
         )
-    except (SQLAlchemyError, SchemaStateError):
+        configured_keyring()
+    except (SQLAlchemyError, SchemaStateError, SecretStorageError):
         # Driver errors can contain connection credentials. Never echo/log them.
         response.status_code = 503
         return ReadinessResponse(status="not_ready")
