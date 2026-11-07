@@ -693,7 +693,9 @@ and real worker/PostgreSQL Compose runs. Counts are in the Phase 5 roadmap entry
 ## ADR-017 — Operator access first with an explicit path to tenant identity
 
 **Date:** 2026-11-04
-**Status:** Accepted for P6-1; tenant identity/ownership direction below is planned
+**Status:** Accepted for P6-1; project ownership is implemented by ADR-018.
+Human identity/membership direction below remains planned. P6-1 tradeoffs describe
+its original delivery and are superseded where ADR-018 says so.
 
 **Problem:** Every current API caller can read or mutate the same installation.
 Phase 6 combines identity, ownership, secret storage and network security. Treating
@@ -783,3 +785,108 @@ Tradeoffs:
 Future implications:
 Validation/evidence:
 ```
+
+## ADR-018 — Project-scoped operator tokens with additive ownership bindings
+
+**Date:** 2026-11-06
+**Status:** Accepted for P6-2; human identity/membership remains planned
+
+**Problem:** P6-1 authenticates operators but lets every reader access the whole
+installation. Route roles alone cannot protect individual targets, reports or
+indirect historical references. Queued work and judgment caching must carry the
+same ownership boundary after the originating request has ended.
+
+**Alternatives:** Implement an OIDC provider and human membership management first;
+use one database per project; introduce PostgreSQL-only row-level security; rebuild
+existing parent tables to add mandatory scope columns; or use additive ownership
+bindings and explicit service predicates while preserving both SQLite and PostgreSQL.
+
+**Decision:** Organizations own projects. Each target and token has one project
+binding in new foreign-key tables. New projects have no access to the legacy
+project; even an admin token acts within just one project. The CLI provisions
+organizations/projects and requires explicit project selection for token issuance.
+HTTP sessions derive scope from authenticated identity, and service reads/mutations
+filter by target ownership. Missing bindings fail closed. No transfer API exists.
+
+Revision 0006 adopts prior targets/tokens into named legacy project 1 and extends
+pending private job payloads with project/target identity. Workers verify that
+frozen identity agrees with the target and run before dispatch, lease checks and
+checkpoint writes. Project UUID namespaces enter frozen judge runtime/cache keys,
+without changing public comparison fingerprints. The shared worker remains a
+trusted process. Local unauthenticated mode addresses only legacy project 1.
+
+**Reasoning:** One-to-one bindings add ownership without rebuilding SQLite parent
+tables under existing cascading foreign keys. They also let unbound raw rows deny
+access rather than silently fall into a default project. Existing report evidence,
+immutable baseline references and queued transport/provider settings are preserved.
+A single token scope keeps authorization understandable without inventing human
+accounts before OIDC selection. Explicit predicates work in both supported databases
+and are covered by negative API tests, including indirect and idempotent paths.
+
+**Tradeoffs:** Extra joins and binding records are needed. Internal ORM creation
+uses legacy project 1 as its compatibility default; HTTP creation supplies scope
+and the CLI requires it. Future paths must use the scoped session and owned-resource
+lookup. This is application authorization, not database RLS: host/database operators
+can read or mutate all projects. Organizations are ownership containers, not login
+accounts or organization-wide authorization grants. Names are unverified labels.
+Shared workers, queue limits, cache capacity and provider credentials remain shared;
+project namespaces prevent cache reuse, not resource contention. There is no
+project transfer/delete API, human membership, per-project budget or audit trail
+for every request. Credential lifecycle auditing remains as before.
+
+**Recovery and future implications:** Operators must review legacy adoption before
+migration; already mixed customer data needs a separate reviewed split. Stop all
+API/workers for migration. Downgrade refuses multiple organizations/projects because
+older unscoped binaries would collapse the access boundary. Use reviewed backups
+instead. Later OIDC subjects/memberships can grant access to the same projects;
+secret encryption and outbound/resource policy remain separate Phase 6 gates.
+No public-deployment readiness is claimed.
+
+**Validation:** SQLite/PostgreSQL migration/model parity and evidence preservation;
+sibling-project and cross-organization API denial, missing bindings, idempotency,
+worker dispatch/checkpoint scope, real owned target/provider child execution and
+project cache-key separation; browser report isolation when changing tokens.
+See [PROJECT_ISOLATION.md](PROJECT_ISOLATION.md), the roadmap and PR check evidence.
+
+## ADR-019 — Encrypt target keys and private job payloads at the SQL boundary
+
+**Problem:** Write-only API schemas still leave plaintext target keys in database
+backups. Durable work also snapshots target/provider keys, so protecting only the
+target column would leave a second recoverable copy.
+
+**Alternatives:** External secret-manager references; a new per-project credential
+service; encryption only in CRUD services; or encryption types over existing
+columns. References would change frozen-job semantics and require additional
+service/lifecycle policy. Service-only encryption can be bypassed by other ORM or
+Core writes. Managed key infrastructure is not yet part of the local MVP.
+
+**Decision:** Use pinned `cryptography` AES-256-GCM with versioned envelopes and
+field-purpose authentication. SQLAlchemy types encrypt the target key and entire
+private job JSON on binding and reject invalid/plaintext data on reading. A bounded
+private keyring outside the database supplies one active and retained old keys.
+Explicit CLI initialization, offline transactional re-encryption and read-only
+verification support lifecycle operations without printing secrets. Revision 0007
+converts legacy rows transactionally and refuses unsafe plaintext downgrade.
+Compose mounts a separately initialized key volume read-only in trusted services.
+
+**Reasoning:** This covers all existing database copies of target/provider keys
+while preserving project checks, queue fencing, immutable accepted configuration,
+terminal cleanup and public API contracts. AES-GCM provides confidentiality and
+integrity through a maintained library; there is no handwritten cryptography.
+The extra dependency solves authenticated encryption, not a speculative need.
+
+**Tradeoffs:** API and worker still possess installation-wide decryption authority.
+Field-purpose authentication does not prevent a trusted DB writer from substituting
+same-purpose rows. Key-file reads add filesystem work per encrypted field. This is
+appropriate for the local bounded queue, with no performance claim. Losing keys
+loses access; backups need separate retained keys. Rotation requires downtime and
+one transaction over existing records. Old disk pages/backups can retain plaintext.
+Canary rows and general evidence/templates remain outside the encryption scope.
+Environment provider configuration remains shared; replacing a credential does not
+revoke frozen jobs or revoke the credential at its external issuer.
+
+**Future implications:** Managed key storage, per-project provider credentials,
+complete credential/request audits and evidence retention remain Phase 6 work.
+Human memberships and egress/resource controls are separate unfinished gates.
+Neither this encryption milestone nor its tests establish public readiness.
+Details and operational steps: [SECRET_STORAGE.md](SECRET_STORAGE.md).

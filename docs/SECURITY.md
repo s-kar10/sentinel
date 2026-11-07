@@ -9,8 +9,8 @@ Sentinel tests AI systems the developer owns or has explicit permission to test.
 Use synthetic data and fake/scoped test credentials. The included demo deliberately
 leaks public fake values and must never be exposed as a production AI application.
 
-The default local mode is unauthenticated. Optional token mode adds installation-wide
-API roles, but there is still no tenant isolation. Run only in a trusted local
+The default local mode is unauthenticated. Optional token mode enforces project-scoped
+API roles, resource access, worker ownership and judgment-cache namespaces. Run only in a trusted local
 environment; see [operator access](ACCESS_CONTROL.md). Compose publishes services on `127.0.0.1`, but that
 does not protect against untrusted processes on the host or all container-network
 access. Do not expose the API, database, or demo publicly before the security gate
@@ -59,7 +59,8 @@ Credentials, canaries, endpoint URLs, templates, and responses can be sensitive.
   children receive private input through pipes and generic failures hide tracebacks.
   These controls apply to the queued path, not the deprecated synchronous endpoint.
 - Public job APIs omit private payloads and compatibility fingerprints. Active
-  payloads contain plaintext copied secrets and are cleared on terminal state.
+  payloads are encrypted at rest and cleared on terminal state. The separate
+  keyring is available only to trusted application services; see [storage limits](SECRET_STORAGE.md).
   Version labels containing known secrets are rejected before submission commits.
 - Optional OpenAI judging is disabled by default, model-allowlisted by server
   configuration and uses a fixed provider URL. Known secrets are redacted before
@@ -67,31 +68,33 @@ Credentials, canaries, endpoint URLs, templates, and responses can be sensitive.
   provider subprocess deadlines and strict result validation constrain execution.
   These controls do not establish judgment correctness or defeat prompt injection.
   Unrecognized sensitive content can still be transmitted to OpenAI.
-- Active queued semantic jobs also contain a copied plaintext OpenAI key; terminal
+- Active queued semantic jobs contain an encrypted frozen OpenAI key; terminal
   cleanup does not remove backups. The disposable local cache stores redacted
-  judgments, expires entries after 24 hours and is not tenant-aware. Target deletion
+  judgments, expires entries after 24 hours and uses project-scoped cache keys. Target deletion
   does not immediately clear that separate cache. Delete its file for immediate
   local cache removal. See [LLM_EVALUATION.md](LLM_EVALUATION.md) for full limits.
 
 These controls reduce specific risks. They do not establish end-to-end secrecy,
 bounded resource use, safe arbitrary outbound access, or production readiness.
 
-## Operator access boundary (P6-1)
+## Operator and project access boundaries (P6-1/P6-2)
 
 Token mode validates expiring/revocable opaque token hashes on every protected
 request and applies a default-deny route policy before body parsing. Reader,
-runner and admin are installation-wide roles, not organization/project grants.
+runner and admin roles apply only to the token's one project. Organization-wide
+roles and human memberships are not implemented.
 The local CLI alone issues/revokes credentials and records lifecycle events.
 Tokens are written to exclusive 0600 files; the API never returns their values or
 hashes. The browser keeps tokens in memory and clears application state on 401 or
 sign-out. Authorized responses use no-store caching. CORS is not authentication.
 See [scope, threat boundaries and limits](ACCESS_CONTROL.md).
 
-All tokens still address the same data. Target/provider credentials and active
-jobs retain their existing plaintext storage; revoking an operator token does not
+Tokens address only their bound project's data. Target keys and active private jobs
+are encrypted under an installation keyring; revoking an operator token does not
 cancel accepted work. No request quota or egress allowlist was added. This is a
 verified access-control milestone, not the full Phase 6 security review. Tests
-cover permission/expiry/revocation failures, not a claim of tenant isolation.
+cover permission/expiry/revocation failures and cross-project API/worker/cache
+boundaries; see [tested isolation and remaining trust assumptions](PROJECT_ISOLATION.md).
 
 ## Synthetic security fixtures
 
@@ -110,8 +113,8 @@ review. Public deployment remains blocked on Phase 6.
 | Risk | Current exposure | Required direction / gate |
 | --- | --- | --- |
 | SSRF and internal network access | Any accepted HTTP(S) target can address backend-reachable services; no DNS/IP/port allowlist or egress enforcement | Before public/multi-user use: explicit authorized destinations, IPv4/IPv6 and DNS rebinding defenses, connection-time enforcement, metadata/private-network policy, and network egress restrictions. Preserve local demo access through an explicit development policy |
-| Access and tenant boundaries | Local mode is unauthenticated; token mode enforces installation-wide roles but all readers share data | Human identity, organization/project membership, tenant-scoped tokens, authorization on every resource and job path |
-| Plaintext secrets | API keys, canaries and active job payloads are plaintext in the database/backups | Encryption or secret-manager references, key isolation, least privilege, rotation/revocation, audit access |
+| Access and tenant boundaries | Local mode is unauthenticated within project 1; token mode scopes data/jobs/cache keys, but infrastructure is shared | Human identity/memberships, capacity budgets, future artifact/export scoping and full security review |
+| Sensitive storage | Dedicated target keys and private jobs are encrypted; canary rows, templates/evidence and old backups can retain plaintext | Separate key backups, managed keys/provider credentials, retention and complete access audits |
 | Sensitive evidence | New evidence redacts known keys/canaries; other sensitive content, encodings and old raw records can remain | Redaction/retention policy, scoped evidence access, safe exports, deletion/backup policy. Write-only key fields do not protect copies in target output |
 | Secrets in other fields/errors | Templates and URL query strings are readable; validation redaction is field-specific, not comprehensive | Treat all input/output surfaces as potential secrets; use synthetic tests to cover validation, exceptions, logs, and UI. Do not place real secrets in templates/URLs |
 | Request/response resource exhaustion | No application request-body or template depth limit; response cap is checked after decoding/chunk allocation; queued cases/runs now have deadlines; memory/decompression/input allocation is not fully bounded | Bounded input, parser/decompression safeguards, total deadlines, concurrency/rate limits and quotas |

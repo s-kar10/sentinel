@@ -97,10 +97,13 @@ errors; expired leases are recovered on subsequent queue visits.
 
 ### Persistence and transaction boundaries
 
-Seven application tables now exist: `target_applications`, `protected_values`,
-`evaluation_runs`, `test_results`, `evaluation_jobs`, `queue_control`, `baselines`.
-Alembic adds its revision table. Schema head is `0005_access_tokens`; the two new tables hold operator token hashes
-and credential-lifecycle events.
+Thirteen application tables now exist: `target_applications`, `protected_values`,
+`evaluation_runs`, `test_results`, `evaluation_jobs`, `queue_control`, `baselines`,
+`access_tokens`, `access_audit`, `organizations`, `projects`, `target_projects` and
+`token_projects`. Alembic adds its revision table. Schema head is `0007_encrypted_credentials`.
+Project bindings are additive one-to-one ownership records; API sessions derive scope
+from the token, while trusted workers verify frozen job ownership. Judge runtimes
+include a private project cache namespace. See [PROJECT_ISOLATION.md](PROJECT_ISOLATION.md).
 
 Phase 4 needs no main-schema migration: versioned judge definitions and outcomes
 use existing snapshot/assertion JSON fields. Only the supervising worker writes
@@ -127,7 +130,8 @@ targets is at least once; fencing does not undo external side effects. See the
 Target deletion cascades canaries, runs, results, jobs and baselines. The singleton
 coordinator remains. Target renaming still changes the displayed historical
 `target_name`; definitions/configuration/version labels remain snapshots. Private
-job payloads contain copied plaintext secrets while active. Public result/snapshot
+job payloads contain encrypted frozen secrets while active. See
+[SECRET_STORAGE.md](SECRET_STORAGE.md) for key handling and storage limits. Public result/snapshot
 text redacts known canaries/keys; old raw records are not scrubbed.
 
 ### Evaluation and analysis semantics

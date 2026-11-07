@@ -15,6 +15,7 @@ from app.core.config import get_settings
 from app.database.migrations import SchemaStateError, require_current_schema
 from app.database.session import build_engine
 from app.models.access import AccessAudit, AccessToken
+from app.models.project import Organization, Project
 
 
 def main(argv=None) -> int:
@@ -23,6 +24,7 @@ def main(argv=None) -> int:
     create = commands.add_parser("issue")
     create.add_argument("--name", required=True)
     create.add_argument("--role", choices=[r.value for r in Role], required=True)
+    create.add_argument("--project-id", type=int, required=True)
     create.add_argument("--days", type=int, default=7)
     create.add_argument(
         "--output",
@@ -34,6 +36,12 @@ def main(argv=None) -> int:
     cancel.add_argument("token_id", type=int)
     commands.add_parser("list")
     commands.add_parser("audit")
+    organization = commands.add_parser("organization-create")
+    organization.add_argument("--name", required=True)
+    project = commands.add_parser("project-create")
+    project.add_argument("--organization-id", type=int, required=True)
+    project.add_argument("--name", required=True)
+    commands.add_parser("projects")
     args = parser.parse_args(argv)
     engine = None
     created_file = None
@@ -47,11 +55,44 @@ def main(argv=None) -> int:
                 fd = os.open(args.output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
                 created_file = args.output
                 with os.fdopen(fd, "w") as output:
-                    row, value = issue(db, args.name, Role(args.role), args.days)
+                    row, value = issue(
+                        db,
+                        args.name,
+                        Role(args.role),
+                        args.days,
+                        project_id=args.project_id,
+                    )
                     output.write(value + "\n")
                     output.flush()
                     os.fsync(output.fileno())
                 token_id = row.id
+            elif args.command in {"organization-create", "project-create"}:
+                name = args.name.strip()
+                if not name or len(name) > 100 or any(ord(c) < 32 for c in name):
+                    raise ValueError("Use a printable name of 1–100 characters.")
+                if args.command == "organization-create":
+                    row = Organization(name=name)
+                else:
+                    if db.get(Organization, args.organization_id) is None:
+                        raise ValueError("Organization not found.")
+                    row = Project(name=name, organization_id=args.organization_id)
+                db.add(row)
+                db.flush()
+                created_id = row.id
+            elif args.command == "projects":
+                print(
+                    json.dumps(
+                        [
+                            {
+                                "id": p.id,
+                                "name": p.name,
+                                "organization_id": p.organization_id,
+                                "organization_name": p.organization.name,
+                            }
+                            for p in db.scalars(select(Project).order_by(Project.id))
+                        ]
+                    )
+                )
             elif args.command == "revoke":
                 if (
                     not revoke(db, args.token_id)
@@ -67,6 +108,7 @@ def main(argv=None) -> int:
                                 "id": r.id,
                                 "name": r.name,
                                 "role": r.role,
+                                "project_id": r.project_id,
                                 "expires_at": r.expires_at.isoformat(),
                                 "revoked": r.revoked_at is not None,
                             }
@@ -94,6 +136,8 @@ def main(argv=None) -> int:
             print(
                 f"Created access token {token_id}; credential written to the requested private file."
             )
+        elif args.command in {"organization-create", "project-create"}:
+            print(f"Created {args.command.removesuffix('-create')} {created_id}.")
         elif args.command == "revoke":
             print("Access token revoked.")
         return 0

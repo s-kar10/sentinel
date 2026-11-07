@@ -3,7 +3,7 @@
 Phases 2 and 3 add a durable worker and comparisons of saved evidence. The target
 adapter, attack definitions, assertion registry and existing scores are preserved.
 The default browser workflow uses the queue. These are local development features;
-tenant isolation, encrypted target/provider secrets and safe public deployment
+human memberships, complete credential lifecycle and safe public deployment
 remain unfinished. Optional [operator access](ACCESS_CONTROL.md) now protects API
 admission; revoking that access does not cancel already accepted jobs.
 
@@ -127,7 +127,8 @@ or partitions can also leave old external work running past a lease. Exactly-onc
 external calls and a strict physical concurrency bound through arbitrary failures
 would require cooperation from the target. Use authorized, repeat-safe test APIs.
 
-Private job payloads contain copied credentials/canaries in plaintext while active,
+Private job payloads encrypt copied credentials/canaries at rest while active (see
+[SECRET_STORAGE.md](SECRET_STORAGE.md)),
 just as target configuration currently does. They are excluded from APIs and cleared
 when a run finishes, fails or is cancelled; backups may retain copies. Public
 snapshots/evidence redact known target secrets. Historical raw evidence is not
@@ -209,8 +210,11 @@ completion, retry exhaustion, cancellation, lease recovery, hard child timeout a
 frozen target/transport configuration. A bounded workload runs eight 0.8-second
 synthetic cases across two targets with four competing consumers on SQLite and
 PostgreSQL: all eight finish with at most two active cases, no same-target overlap,
-and claim starts spaced by the configured admission interval (test timing tolerance
-50 ms). This is a correctness workload, not a throughput benchmark.
+and persisted admission times (derived from lease expiry) spaced by at least the
+configured 0.5-second interval. A deterministic test rejects admission at 0.499
+seconds and accepts the boundary at 0.5. Executor callback starts can bunch after
+OS scheduling delays and are not the admission clock. This is a correctness
+workload, not a throughput benchmark.
 
 Historical tests cover known synthetic regressions/improvements, incompatible and
 legacy records, coverage changes, insufficient/mixed/error repeats, immutable

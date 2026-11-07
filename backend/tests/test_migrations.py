@@ -32,6 +32,7 @@ from app.models import (
     TargetApplication,
 )
 from app.models import TestResult as Result
+from app.secrets.codec import configured_keyring
 
 HEAD = ScriptDirectory.from_config(migration_config()).get_current_head()
 
@@ -90,7 +91,11 @@ def seed_records(engine) -> tuple[int, int]:
                 name="Legacy target",
                 endpoint_url="http://demo-target:8001/chat",
                 http_method="POST",
-                api_key="FAKE_MIGRATION_KEY",
+                api_key=(
+                    configured_keyring().seal("FAKE_MIGRATION_KEY", "target-api-key")
+                    if current_revisions(connection) == ("0007_encrypted_credentials",)
+                    else "FAKE_MIGRATION_KEY"
+                ),
                 request_template={"message": ""},
                 prompt_field="message",
                 response_field="response",
@@ -132,13 +137,22 @@ def seed_records(engine) -> tuple[int, int]:
                 duration_ms=12,
             )
         )
+        if "target_projects" in sa.inspect(connection).get_table_names():
+            connection.execute(
+                sa.text(
+                    "INSERT INTO target_projects (target_id, project_id) VALUES (:target, 1)"
+                ),
+                {"target": target_id},
+            )
     return target_id, run_id
 
 
-def assert_records_and_cascades(engine, target_id: int, run_id: int) -> None:
+def assert_records_and_cascades(
+    engine, target_id: int, run_id: int, expected_key="FAKE_MIGRATION_KEY"
+) -> None:
     with Session(engine) as db:
         target = db.get(TargetApplication, target_id)
-        assert target.api_key == "FAKE_MIGRATION_KEY"
+        assert target.api_key == expected_key
         assert target.request_template == {"message": ""}
         assert target.protected_values[0].value == "FAKE_CANARY"
         run = db.get(EvaluationRun, run_id)
@@ -220,6 +234,19 @@ def test_populated_legacy_database_requires_adoption_and_preserves_all_rows(
             table.name: connection.execute(sa.select(table)).all()
             for table in legacy_metadata().sorted_tables
         }
+        # Credential representation changes; all other historical evidence survives.
+        target_rows = after["target_applications"]
+        after["target_applications"] = [
+            tuple(
+                configured_keyring().open(value, "target-api-key")
+                if column.name == "api_key" and value is not None
+                else value
+                for column, value in zip(
+                    legacy_metadata().tables["target_applications"].columns, row
+                )
+            )
+            for row in target_rows
+        ]
         assert after == before
     assert_records_and_cascades(migration_engine, *ids)
 
@@ -411,6 +438,7 @@ def test_v2_downgrade_drops_only_new_metadata(migration_engine):
         run.results[0].outcome_code = "failed"
         db.commit()
     with migration_engine.begin() as connection:
+        connection.execute(sa.text("UPDATE target_applications SET api_key = NULL"))
         command.downgrade(migration_config(connection), BASELINE)
         assert (
             connection.execute(
@@ -427,7 +455,7 @@ def test_v2_downgrade_drops_only_new_metadata(migration_engine):
     migrate(migration_engine, "upgrade")
     with Session(migration_engine) as db:
         assert db.get(EvaluationRun, run_id).pack_snapshot is None
-    assert_records_and_cascades(migration_engine, target_id, run_id)
+    assert_records_and_cascades(migration_engine, target_id, run_id, expected_key=None)
 
 
 def test_jobs_and_history_upgrade_downgrade_preserve_original_evidence(
@@ -478,6 +506,7 @@ def test_jobs_and_history_upgrade_downgrade_preserve_original_evidence(
             == completed_id
         )
     with migration_engine.begin() as conn:
+        conn.execute(sa.text("UPDATE target_applications SET api_key = NULL"))
         command.downgrade(migration_config(conn), "0002_engine_v2")
     with migration_engine.connect() as conn:
         assert conn.scalar(sa.text("SELECT count(*) FROM evaluation_runs")) == 3
@@ -524,11 +553,12 @@ def test_access_upgrade_downgrade_preserves_prior_evidence(migration_engine):
         assert len(list(db.scalars(sa.select(AccessAudit)))) == 2
         assert db.get(AccessToken, token_id).digest != token
     with migration_engine.begin() as connection:
+        connection.execute(sa.text("UPDATE target_applications SET api_key = NULL"))
         command.downgrade(migration_config(connection), "0004_history")
         assert "access_tokens" not in sa.inspect(connection).get_table_names()
         assert "access_audit" not in sa.inspect(connection).get_table_names()
     migrate(migration_engine, "upgrade")
     with Session(migration_engine) as db:
         assert list(db.scalars(sa.select(AccessToken))) == []
-        assert db.get(TargetApplication, target_id).api_key == "FAKE_MIGRATION_KEY"
+        assert db.get(TargetApplication, target_id).api_key is None
         assert db.get(EvaluationRun, run_id).results[0].response == "FAKE_CANARY"

@@ -42,6 +42,9 @@ def main():
                     "PYTHONPATH",
                     "AUTH_",
                     "APP_ENVIRONMENT",
+                    "SECRET_",
+                    "OPENAI_",
+                    "JUDGE_",
                 )
             )
         }
@@ -50,12 +53,26 @@ def main():
             if os.environ.get("SENTINEL_BROWSER_AUTH") == "1"
             else "local",
             APP_ENVIRONMENT="development",
+            SECRET_KEYRING_FILE=f"{directory}/keyring.json",
             DATABASE_URL=f"sqlite:///{directory}/test.db",
             CORS_ORIGINS="http://127.0.0.1:18473",
             PYTHONPATH=str(ROOT / "backend"),
             TARGET_REQUEST_TIMEOUT_SECONDS="2",
         )
         try:
+            subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "app.secrets.cli",
+                    "init",
+                    "--output",
+                    env["SECRET_KEYRING_FILE"],
+                ],
+                cwd=directory,
+                env=env,
+                check=True,
+            )
             subprocess.run(
                 [sys.executable, "-m", "app.database.migrations", "upgrade"],
                 cwd=directory,
@@ -74,12 +91,22 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from app.database.session import engine
 from app.models.access import AccessToken
+from app.models.project import Organization, Project
 from app.auth.tokens import digest
 with Session(engine) as db:
     for role, marker in [('admin', 'A'), ('reader', 'R')]:
         db.add(AccessToken(name='Browser ' + role, role=role,
             digest=digest('snt_' + marker * 43),
             expires_at=datetime.now(timezone.utc) + timedelta(hours=1)))
+    org = Organization(name='Browser other organization')
+    db.add(org)
+    db.flush()
+    project = Project(name='Browser other project', organization_id=org.id)
+    db.add(project)
+    db.flush()
+    db.add(AccessToken(name='Browser other admin', role='admin', project_id=project.id,
+        digest=digest('snt_' + 'B' * 43),
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=1)))
     db.commit()
 """,
                     ],

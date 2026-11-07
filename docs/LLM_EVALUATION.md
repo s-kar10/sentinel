@@ -156,7 +156,9 @@ Native default: `backend/.sentinel-judge-cache.sqlite3` when started from `backe
 storage. Compose uses `/tmp/sentinel-judge-cache.sqlite3` inside each container;
 it survives worker process restarts but not container replacement. Separate worker
 containers have separate caches. Mount a private writable path only if shared
-local caching is needed. It has no tenant isolation; do not expose this MVP publicly.
+local caching is needed. P6-2 adds private project namespaces to cache keys; the
+file, capacity and provider credentials remain shared infrastructure. See
+[project boundaries](PROJECT_ISOLATION.md); public exposure remains blocked.
 
 Historical compatibility includes judge definitions and operator policy. Analysis
 version `history-v2` flags cached judgments and excludes them from repeated-run
@@ -220,7 +222,7 @@ intervals or statistically calibrated false-positive rates.
   before transmission. Other content can still be sensitive and is sent to OpenAI.
   Redaction can change meaning; literal secret checks run before redaction. This is
   not general PII detection. `store: false` is not a claim of zero provider retention.
-- **Credentials:** active private queue payloads contain a copied plaintext judge
+- **Credentials:** active private queue payloads contain an encrypted frozen judge
   credential, cleared at terminal state, like target credentials. Backups can retain
   them. Rotation requires dealing with already queued jobs. Phase 6 owns secure
   secret storage, authorization and tenant isolation.
@@ -230,5 +232,6 @@ intervals or statistically calibrated false-positive rates.
 
 Phase 5 now supplies [authorized synthetic security packs](SECURITY_PACKS.md).
 That work does not close the explicitly pending live Phase 4 calibration. Phase 6
-operator access has started; organizations, secure target/provider secrets and
+operator/project access and encrypted database credential copies exist; human
+memberships, provider credential management and
 network policy remain unfinished.

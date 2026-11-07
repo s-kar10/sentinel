@@ -7,6 +7,8 @@ from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
+from app.models.project import TargetProject
+from app.secrets.types import EncryptedKey
 
 if TYPE_CHECKING:
     from app.models.evaluation import EvaluationRun
@@ -17,13 +19,23 @@ class TargetApplication(Base):
 
     __tablename__ = "target_applications"
 
+    ownership: Mapped[TargetProject | None] = relationship(
+        cascade="all, delete-orphan", uselist=False, lazy="joined", passive_deletes=True
+    )
+
+    def __init__(self, *, project_id=1, **kwargs):
+        super().__init__(**kwargs)
+        self.ownership = TargetProject(project_id=project_id)
+
+    @property
+    def project_id(self) -> int | None:
+        return self.ownership.project_id if self.ownership else None
+
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     endpoint_url: Mapped[str] = mapped_column(String(2048), nullable=False)
     http_method: Mapped[str] = mapped_column(String(10), nullable=False, default="POST")
-    # TODO: Encrypt this value at rest or replace it with a secret-manager reference
-    # before a production deployment. It is never exposed through response schemas.
-    api_key: Mapped[str | None] = mapped_column(Text, nullable=True)
+    api_key: Mapped[str | None] = mapped_column(EncryptedKey(), nullable=True)
     request_template: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     prompt_field: Mapped[str] = mapped_column(String(500), nullable=False)
     response_field: Mapped[str] = mapped_column(String(500), nullable=False)

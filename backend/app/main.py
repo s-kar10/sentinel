@@ -18,6 +18,7 @@ from app.auth.policy import PUBLIC_GET
 from app.core.config import Settings, get_settings
 from app.database.migrations import require_current_schema
 from app.database.session import engine
+from app.secrets.codec import SecretStorageError, configured_keyring
 from app.services.errors import (
     ConflictError,
     EvaluationExecutionError,
@@ -58,6 +59,7 @@ def create_app(
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         require_current_schema(resolved_engine)
+        configured_keyring()
         yield
 
     application = FastAPI(
@@ -68,6 +70,7 @@ def create_app(
         redoc_url="/redoc" if resolved_settings.auth_mode == "local" else None,
     )
     application.state.database_engine = resolved_engine
+    application.state.settings = resolved_settings
     application.add_middleware(
         AccessMiddleware,
         engine=resolved_engine,
@@ -110,6 +113,10 @@ def create_app(
 
     if application_settings is not None:
         application.dependency_overrides[get_settings] = lambda: resolved_settings
+
+    @application.exception_handler(SecretStorageError)
+    async def unavailable_secrets(_: Request, exc: SecretStorageError) -> JSONResponse:
+        return JSONResponse(status_code=503, content={"detail": str(exc)})
 
     @application.exception_handler(ConflictError)
     async def conflict(_: Request, exc: ConflictError) -> JSONResponse:

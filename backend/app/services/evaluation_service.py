@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.attacks import AttackDefinition, get_attack_catalog
 from app.attacks.packs import AttackPack
+from app.auth.scope import owned_targets
 from app.core.config import get_settings
 from app.evaluators.contracts import aggregate
 from app.evaluators.engine import AssertionRegistry, evaluate_assertion, registry
@@ -104,6 +105,10 @@ class EvaluationService:
     def prepare(self, target_id: int, *, attack_pack: AttackPack | None = None):
         """Validate and stage immutable planned results in the caller's transaction."""
         target = self._get_target(target_id)
+        self.judge_runtime = {
+            **self.judge_runtime,
+            "project_namespace": target.ownership.project.cache_namespace,
+        }
         attacks = attack_pack.definitions() if attack_pack is not None else self.attacks
         try:
             definitions = [
@@ -255,6 +260,7 @@ class EvaluationService:
     def list_runs(self, *, target_id: int | None = None) -> list[EvaluationRun]:
         statement = (
             select(EvaluationRun)
+            .where(EvaluationRun.target_application_id.in_(owned_targets(self.db)))
             .options(
                 selectinload(EvaluationRun.target_application),
                 selectinload(EvaluationRun.results),
@@ -270,6 +276,7 @@ class EvaluationService:
     def get_run(self, evaluation_id: int) -> EvaluationRun:
         statement = (
             select(EvaluationRun)
+            .where(EvaluationRun.target_application_id.in_(owned_targets(self.db)))
             .where(EvaluationRun.id == evaluation_id)
             .options(
                 selectinload(EvaluationRun.target_application),
@@ -288,7 +295,10 @@ class EvaluationService:
     def _get_target(self, target_id: int) -> TargetApplication:
         statement = (
             select(TargetApplication)
-            .where(TargetApplication.id == target_id)
+            .where(
+                TargetApplication.id == target_id,
+                TargetApplication.id.in_(owned_targets(self.db)),
+            )
             .options(selectinload(TargetApplication.protected_values))
         )
         target = self.db.scalar(statement)

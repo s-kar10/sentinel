@@ -45,8 +45,8 @@ Compose configuration validation does not start any services.
 
 ### PostgreSQL tests
 
-The default backend suite has **306 cases and 31 PostgreSQL skips**. To run all
-**337 cases**, set `SENTINEL_TEST_POSTGRES_URL` to a disposable PostgreSQL 16
+The default backend suite has **315 cases and 38 PostgreSQL skips**. To run all
+**353 cases**, set `SENTINEL_TEST_POSTGRES_URL` to a disposable PostgreSQL 16
 database whose name ends in `_migration_test`, then run the same Python script.
 See [migration verification](MIGRATIONS.md#verification). CI provisions its own
 PostgreSQL service with synthetic credentials and always sets this variable.
@@ -56,8 +56,9 @@ Tests create and clean their own schemas. Never use a database containing real d
 
 `backend/tests/test_access.py` exercises permissions, private token lifecycle,
 expiry/revocation, failed verification and the route inventory. Migration tests
-cover revision 0005 on SQLite and PostgreSQL. The standard 23 browser workflows run
-in local mode; also run four token-mode workflows against separate fresh services:
+cover revision 0006 on SQLite and PostgreSQL. `test_projects.py` exercises scoped
+API/worker/cache access, real child processes, adoption and downgrade refusal. The standard 23 browser workflows run
+in local mode; also run five token-mode workflows against separate fresh services:
 
 ```sh
 (cd frontend && SENTINEL_BROWSER_AUTH=1 npm run test:e2e)
@@ -268,3 +269,14 @@ Known dependency maintenance items:
 
 See [ADR-008](DECISIONS.md#adr-008--shared-checks-and-reviewed-dependency-locks)
 for alternatives and tradeoffs.
+
+## Private encryption keys for development and tests
+
+Initialize the native/Compose keyring once using [SECRET_STORAGE.md](SECRET_STORAGE.md)
+before starting API/workers. Never overwrite an existing keyring or include it in Git.
+Migration head is `0007_encrypted_credentials`. Unit tests create temporary 0600
+keyrings automatically, browser tests initialize their own key file, and Compose
+smoke initializes a separate key volume. None uses or alters developer keys.
+Encryption, legacy conversion, offline rotation and project isolation run on both
+SQLite and disposable PostgreSQL. The smoke checks encrypted raw database fields
+and retained keys across service recreation.

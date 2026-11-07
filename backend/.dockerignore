@@ -5,3 +5,11 @@ __pycache__/
 htmlcov/
 .venv/
 tests/
+
+# Never send local credentials or databases to the build daemon.
+.secrets/
+.env
+.env.*
+*.db
+*.db-*
+*.sqlite*

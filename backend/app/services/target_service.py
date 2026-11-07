@@ -3,6 +3,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.auth.scope import owned_targets
 from app.models import ProtectedValue, TargetApplication
 from app.schemas.target import ProtectedValueCreate, TargetCreate, TargetUpdate
 from app.services.errors import InvalidTargetConfigurationError, ResourceNotFoundError
@@ -16,15 +17,20 @@ class TargetService:
         self.db = db
 
     def list_targets(self) -> list[TargetApplication]:
-        statement = select(TargetApplication).order_by(
-            TargetApplication.created_at.desc()
+        statement = (
+            select(TargetApplication)
+            .where(TargetApplication.id.in_(owned_targets(self.db)))
+            .order_by(TargetApplication.created_at.desc())
         )
         return list(self.db.scalars(statement).all())
 
     def get_target(
         self, target_id: int, *, with_relations: bool = False
     ) -> TargetApplication:
-        statement = select(TargetApplication).where(TargetApplication.id == target_id)
+        statement = select(TargetApplication).where(
+            TargetApplication.id == target_id,
+            TargetApplication.id.in_(owned_targets(self.db)),
+        )
         if with_relations:
             statement = statement.options(
                 selectinload(TargetApplication.protected_values),
@@ -37,7 +43,9 @@ class TargetService:
 
     def create_target(self, payload: TargetCreate) -> TargetApplication:
         values = payload.model_dump(mode="json")
-        target = TargetApplication(**values)
+        target = TargetApplication(
+            project_id=self.db.info.get("project_id", 1), **values
+        )
         self.db.add(target)
         self.db.commit()
         self.db.refresh(target)
@@ -90,8 +98,14 @@ class TargetService:
         return protected_value
 
     def delete_protected_value(self, protected_value_id: int) -> None:
-        protected_value = self.db.get(ProtectedValue, protected_value_id)
+        protected_value = self.db.scalar(
+            select(ProtectedValue).where(
+                ProtectedValue.id == protected_value_id,
+                ProtectedValue.target_application_id.in_(owned_targets(self.db)),
+            )
+        )
         if protected_value is None:
             raise ResourceNotFoundError("Protected value not found.")
+        self.get_target(protected_value.target_application_id)
         self.db.delete(protected_value)
         self.db.commit()

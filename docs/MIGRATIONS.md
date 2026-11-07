@@ -1,7 +1,7 @@
 # Database migrations
 
 Alembic 1.20.1 manages revisions from `0001_v01_baseline` through current head
-`0005_access_tokens`. Migrations describe
+`0007_encrypted_credentials`. Migrations describe
 the database structure at each version. They run explicitly before the API starts;
 the API no longer creates tables. Existing target/run/result data is not migrated
 automatically or deleted by adoption.
@@ -15,6 +15,8 @@ automatically or deleted by adoption.
 | `0003_durable_jobs` | Job/coordinator tables, attempt counts; application adds CANCELLED status |
 | `0004_history` | Version tags, private comparison fingerprint and named baseline references |
 | `0005_access_tokens` | Operator token hashes, roles, expiry/revocation and credential lifecycle records |
+| `0006_projects` | Organizations/projects, target/token ownership bindings, pending-job scope backfill |
+| `0007_encrypted_credentials` | Encrypt target keys and full private job payloads in place |
 
 Back up first. Stop API and workers, build updated images, run the migration
 service, then restart both with the same code. Native users stop both processes,
@@ -22,6 +24,20 @@ run `python -m app.database.migrations upgrade` in `backend`, then restart them.
 Do not run mixed worker/API versions during this maintenance window. Existing
 runs keep their original results and scores; new nullable columns stay null.
 Old pending/running synchronous runs are not automatically turned into jobs.
+
+0007 requires a separately initialized private keyring to convert populated secret
+fields. Stop API/workers, back up, initialize once, then migrate with the same keys
+available to both services. Preserve the keyring when recreating containers.
+Downgrade refuses non-null target keys/private payloads. See [key setup, rotation,
+restore and remaining plaintext limits](SECRET_STORAGE.md). SQL updates do not
+erase earlier plaintext from backups, WAL or disk pages.
+
+0006 adopts existing targets and tokens into **legacy project 1** in one legacy
+organization, and backfills private queued payload scope without rewriting target
+configuration or report evidence. New projects start empty. Review this mapping
+before upgrade; customer data that needs splitting requires a separate reviewed
+migration. Downgrade refuses more than one organization/project to prevent exposing
+all projects through older unscoped code. See [project isolation](PROJECT_ISOLATION.md).
 
 0005 adds two empty tables; it does not rewrite prior data or create credentials.
 Provision tokens explicitly through the [operator CLI](ACCESS_CONTROL.md). Downgrading
@@ -37,7 +53,7 @@ downgrade. A baseline downgrade drops all original data as documented below.
 
 ## The three concepts
 
-- **Upgrade:** apply missing revisions in order. An empty database gets all nine application
+- **Upgrade:** apply missing revisions in order. An empty database gets all thirteen application
   tables and their indexes/foreign keys, plus Alembic's revision-tracking table.
 - **Adopt:** inspect an old, unversioned V0.1 schema and record that it already
   matches the baseline. This does not recreate its tables or rewrite its rows.
@@ -191,7 +207,8 @@ database URLs are not written into `alembic.ini`.
   the migration does not invent SQL server defaults for them.
 - Creation timestamps have database defaults. Target update timestamps continue
   to use the existing SQLAlchemy update behavior.
-- Cascade deletion and existing plaintext credential storage remain unchanged.
+- Cascade deletion remains unchanged. Revision 0007 encrypts dedicated target
+  keys and private payloads; other evidence/canary fields still require protection.
 
 ## Creating the next schema change
 

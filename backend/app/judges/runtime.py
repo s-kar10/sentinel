@@ -48,7 +48,7 @@ def public_policy(runtime: dict) -> dict:
     return {
         key: value
         for key, value in runtime.items()
-        if key not in {"api_key", "endpoint", "cache_path"}
+        if key not in {"api_key", "endpoint", "cache_path", "project_namespace"}
     }
 
 

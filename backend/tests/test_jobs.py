@@ -18,7 +18,7 @@ from app.database.migrations import migrate
 from app.models import EvaluationRun, TargetApplication
 from app.models import TestResult as Result
 from app.models.job import EvaluationJob
-from app.services.job_service import JobService, error_result
+from app.services.job_service import LEASE_SECONDS, JobService, error_result
 from app.worker import execute_claim, run_once
 
 
@@ -149,6 +149,7 @@ def test_limits_progress_and_duplicate_delivery(queue_factory):
     first = claim(queue_factory, now)
     assert first.run_id == runs[0]
     assert claim(queue_factory, now + 0.1) is None  # Global admission rate.
+    assert claim(queue_factory, now + 0.499) is None  # No early boundary admission.
     second = claim(queue_factory, now + 0.5)
     assert second.run_id == runs[1]  # Different target.
     assert claim(queue_factory, now + 1) is None  # Global concurrent limit.
@@ -286,19 +287,25 @@ def test_bounded_multiworker_workload(queue_factory):
     ids = [submit(queue_factory, tid1, count=4), submit(queue_factory, tid2, count=4)]
     mutex = threading.Lock()
     active_targets = set()
-    starts = []
+    admissions = []
     maximum = 0
     errors = []
 
     def execute(lease, active):
         nonlocal maximum
         name = lease.payload["target"]["name"]
+        # Executor callbacks can start late or bunch together after OS scheduling.
+        # The durable lease records the admission time governed by the rate limit.
+        with queue_factory() as db:
+            job = db.get(EvaluationJob, lease.run_id)
+            assert job.token == lease.token
+            admitted_at = job.lease_until - LEASE_SECONDS
         with mutex:
             if name in active_targets:
                 errors.append("overlapping target")
             active_targets.add(name)
             maximum = max(maximum, len(active_targets))
-            starts.append(time.monotonic())
+            admissions.append(admitted_at)
         assert active()
         time.sleep(0.8)
         with mutex:
@@ -319,8 +326,9 @@ def test_bounded_multiworker_workload(queue_factory):
         for task in [pool.submit(consume) for _ in range(4)]:
             task.result()
     assert not errors and maximum <= 2
-    assert len(starts) == 8
-    assert all(b - a >= 0.45 for a, b in zip(sorted(starts), sorted(starts)[1:]))
+    assert len(admissions) == 8
+    ordered = sorted(admissions)
+    assert all(b - a >= 0.5 for a, b in zip(ordered, ordered[1:]))
 
 
 def test_retry_classification_and_frozen_transport_policy(session_factory):

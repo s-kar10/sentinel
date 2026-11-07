@@ -6,7 +6,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN addgroup --system sentinel && adduser --system --ingroup sentinel sentinel
+RUN addgroup --system sentinel && adduser --system --ingroup sentinel sentinel \
+    && mkdir -p /run/sentinel-secrets \
+    && chown sentinel:sentinel /run/sentinel-secrets \
+    && chmod 700 /run/sentinel-secrets
 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir --require-hashes -r requirements.txt
