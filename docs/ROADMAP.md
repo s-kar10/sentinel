@@ -730,6 +730,10 @@ refinement, 63 affected service/queue/project tests passed again on both databas
 Initial hosted Python/Compose checks passed. Browser runs exposed missing completion
 waits in the existing eight-case extraction and main CRUD workflows. Both now wait
 up to 20 seconds for the completed status before asserting unchanged verdicts/counts.
+A previously observed queue timing test also failed in hosted SQLite: it measured
+executor callback starts rather than the documented admission limit. It now checks
+persisted lease admission times at the full 0.5-second interval, retaining workload
+completion/concurrency checks; the deterministic rate test also rejects 0.499 seconds.
 Final hosted results are tracked in the PR; local checks alone are not hosted evidence.
 Developer databases and `.env` files were not changed. Existing deprecation and
 browser teardown warnings remain visible; only desktop Chromium is verified.

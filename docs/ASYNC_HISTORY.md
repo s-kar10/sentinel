@@ -209,8 +209,11 @@ completion, retry exhaustion, cancellation, lease recovery, hard child timeout a
 frozen target/transport configuration. A bounded workload runs eight 0.8-second
 synthetic cases across two targets with four competing consumers on SQLite and
 PostgreSQL: all eight finish with at most two active cases, no same-target overlap,
-and claim starts spaced by the configured admission interval (test timing tolerance
-50 ms). This is a correctness workload, not a throughput benchmark.
+and persisted admission times (derived from lease expiry) spaced by at least the
+configured 0.5-second interval. A deterministic test rejects admission at 0.499
+seconds and accepts the boundary at 0.5. Executor callback starts can bunch after
+OS scheduling delays and are not the admission clock. This is a correctness
+workload, not a throughput benchmark.
 
 Historical tests cover known synthetic regressions/improvements, incompatible and
 legacy records, coverage changes, insufficient/mixed/error repeats, immutable
