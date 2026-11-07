@@ -222,7 +222,7 @@ intervals or statistically calibrated false-positive rates.
   before transmission. Other content can still be sensitive and is sent to OpenAI.
   Redaction can change meaning; literal secret checks run before redaction. This is
   not general PII detection. `store: false` is not a claim of zero provider retention.
-- **Credentials:** active private queue payloads contain a copied plaintext judge
+- **Credentials:** active private queue payloads contain an encrypted frozen judge
   credential, cleared at terminal state, like target credentials. Backups can retain
   them. Rotation requires dealing with already queued jobs. Phase 6 owns secure
   secret storage, authorization and tenant isolation.
@@ -232,5 +232,6 @@ intervals or statistically calibrated false-positive rates.
 
 Phase 5 now supplies [authorized synthetic security packs](SECURITY_PACKS.md).
 That work does not close the explicitly pending live Phase 4 calibration. Phase 6
-operator access has started; organizations, secure target/provider secrets and
+operator/project access and encrypted database credential copies exist; human
+memberships, provider credential management and
 network policy remain unfinished.

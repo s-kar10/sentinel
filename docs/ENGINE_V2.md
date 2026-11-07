@@ -196,7 +196,8 @@ Historical rows keep null provenance/metrics and their existing text/scores.
 Their outward outcome is inferred from the old passed/response contract; it is
 not presented as a newly recorded evaluator verdict. Existing historical secret
 copies are not scrubbed by this migration. Target credentials/canaries remain
-plaintext in their configuration tables pending the Phase 6 security gate.
+sensitive in their configuration tables: target API keys now use encrypted
+storage, while canary values remain plaintext. See [SECRET_STORAGE.md](SECRET_STORAGE.md).
 
 ## Extending the engine
 

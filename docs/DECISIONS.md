@@ -847,3 +847,46 @@ sibling-project and cross-organization API denial, missing bindings, idempotency
 worker dispatch/checkpoint scope, real owned target/provider child execution and
 project cache-key separation; browser report isolation when changing tokens.
 See [PROJECT_ISOLATION.md](PROJECT_ISOLATION.md), the roadmap and PR check evidence.
+
+## ADR-019 — Encrypt target keys and private job payloads at the SQL boundary
+
+**Problem:** Write-only API schemas still leave plaintext target keys in database
+backups. Durable work also snapshots target/provider keys, so protecting only the
+target column would leave a second recoverable copy.
+
+**Alternatives:** External secret-manager references; a new per-project credential
+service; encryption only in CRUD services; or encryption types over existing
+columns. References would change frozen-job semantics and require additional
+service/lifecycle policy. Service-only encryption can be bypassed by other ORM or
+Core writes. Managed key infrastructure is not yet part of the local MVP.
+
+**Decision:** Use pinned `cryptography` AES-256-GCM with versioned envelopes and
+field-purpose authentication. SQLAlchemy types encrypt the target key and entire
+private job JSON on binding and reject invalid/plaintext data on reading. A bounded
+private keyring outside the database supplies one active and retained old keys.
+Explicit CLI initialization, offline transactional re-encryption and read-only
+verification support lifecycle operations without printing secrets. Revision 0007
+converts legacy rows transactionally and refuses unsafe plaintext downgrade.
+Compose mounts a separately initialized key volume read-only in trusted services.
+
+**Reasoning:** This covers all existing database copies of target/provider keys
+while preserving project checks, queue fencing, immutable accepted configuration,
+terminal cleanup and public API contracts. AES-GCM provides confidentiality and
+integrity through a maintained library; there is no handwritten cryptography.
+The extra dependency solves authenticated encryption, not a speculative need.
+
+**Tradeoffs:** API and worker still possess installation-wide decryption authority.
+Field-purpose authentication does not prevent a trusted DB writer from substituting
+same-purpose rows. Key-file reads add filesystem work per encrypted field. This is
+appropriate for the local bounded queue, with no performance claim. Losing keys
+loses access; backups need separate retained keys. Rotation requires downtime and
+one transaction over existing records. Old disk pages/backups can retain plaintext.
+Canary rows and general evidence/templates remain outside the encryption scope.
+Environment provider configuration remains shared; replacing a credential does not
+revoke frozen jobs or revoke the credential at its external issuer.
+
+**Future implications:** Managed key storage, per-project provider credentials,
+complete credential/request audits and evidence retention remain Phase 6 work.
+Human memberships and egress/resource controls are separate unfinished gates.
+Neither this encryption milestone nor its tests establish public readiness.
+Details and operational steps: [SECRET_STORAGE.md](SECRET_STORAGE.md).

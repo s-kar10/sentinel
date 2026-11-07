@@ -10,10 +10,21 @@ from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 import app.models  # noqa: F401 - register all mappings
-from app.core.config import Settings
+from app.core.config import Settings, get_settings
 from app.database.migrations import migrate
 from app.database.session import build_engine, get_db
 from app.main import create_app
+from app.secrets.codec import new_keyring, write_keyring
+
+
+@pytest.fixture(autouse=True)
+def private_keyring(tmp_path, monkeypatch):
+    path = tmp_path / "keyring.json"
+    write_keyring(path, new_keyring())
+    monkeypatch.setenv("SECRET_KEYRING_FILE", str(path))
+    get_settings.cache_clear()
+    yield path
+    get_settings.cache_clear()
 
 
 @pytest.fixture

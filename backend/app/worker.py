@@ -10,6 +10,7 @@ from pathlib import Path
 
 from app.database.migrations import require_current_schema
 from app.database.session import SessionLocal, engine
+from app.secrets.codec import configured_keyring
 from app.services.job_service import Claim, JobService, error_result
 
 
@@ -80,6 +81,7 @@ def run_once(factory=SessionLocal, executor=execute_claim) -> bool:
 
 def main():
     require_current_schema(engine)
+    configured_keyring()
 
     def stop(_signal, _frame):
         raise SystemExit(0)

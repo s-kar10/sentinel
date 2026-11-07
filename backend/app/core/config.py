@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     target_request_timeout_seconds: float = Field(default=10.0, gt=0, le=60)
     target_max_response_bytes: int = Field(default=1_000_000, ge=1_024, le=10_000_000)
     sql_echo: bool = False
+    secret_keyring_file: str = ".secrets/keyring.json"
     judge_enabled: bool = False
     openai_api_key: SecretStr | None = Field(default=None, repr=False)
     judge_model: str = ""

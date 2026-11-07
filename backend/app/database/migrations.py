@@ -13,6 +13,8 @@ from alembic.util.exc import CommandError
 from sqlalchemy import Connection, Engine, inspect, text
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.secrets.codec import SecretStorageError
+
 BASELINE = "0001_v01_baseline"
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
@@ -171,7 +173,7 @@ def main() -> int:
     except SchemaStateError as exc:
         print(str(exc), file=sys.stderr)
         return 1
-    except (SQLAlchemyError, CommandError):
+    except (SQLAlchemyError, CommandError, SecretStorageError):
         print(
             "Migration failed. Check database connectivity and schema configuration.",
             file=sys.stderr,

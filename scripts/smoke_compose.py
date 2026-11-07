@@ -86,6 +86,9 @@ class Stack:
                     "TARGET_",
                     "AUTH_",
                     "APP_ENVIRONMENT",
+                    "SECRET_",
+                    "JUDGE_",
+                    "OPENAI_",
                 )
             )
         }
@@ -326,6 +329,7 @@ def exercise_security_packs(backend):
 
 
 def exercise(stack):
+    stack.compose("run", "--rm", "--build", "--no-deps", "key-init")
     print(f"Starting isolated stack {stack.project}", flush=True)
     # Allocate ports through Docker, avoiding reservation races and existing ports.
     stack.compose(
@@ -403,6 +407,7 @@ def exercise(stack):
         status=201,
         payload={
             "name": "Isolated smoke fixture",
+            "api_key": "SYNTHETIC_SMOKE_TARGET_KEY",
             "endpoint_url": "http://demo-target:8001/chat",
             "request_template": {"message": ""},
             "prompt_field": "message",
@@ -427,12 +432,54 @@ def exercise(stack):
         payload={"versions": {"application": "smoke-v1"}},
     )
     assert run["status"] == "pending" and run["progress"]["completed"] == 0
-    stack.compose("restart", "backend")
+    encrypted_counts = stack.compose(
+        "exec",
+        "-T",
+        "postgres",
+        "psql",
+        "-U",
+        "sentinel",
+        "-d",
+        "sentinel_smoke",
+        "-At",
+        "-c",
+        "SELECT (SELECT count(*) FROM target_applications WHERE api_key LIKE 'sntenc1:%'), "
+        "(SELECT count(*) FROM evaluation_jobs WHERE payload->>'encrypted' LIKE 'sntenc1:%' "
+        "AND payload::text NOT LIKE '%SYNTHETIC_SMOKE_TARGET_KEY%')",
+        capture=True,
+    )
+    assert encrypted_counts == "1|1"
+    # Rotate keys with pending work, then restart both services on the new keyring.
+    stack.compose("stop", "--timeout", "5", "backend")
+    stack.compose(
+        "run",
+        "--rm",
+        "--build",
+        "--no-deps",
+        "key-maintenance",
+        "add-key",
+        "--source",
+        "/run/sentinel-secrets/keyring.json",
+        "--output",
+        "/run/sentinel-secrets/keyring-next.json",
+    )
+    stack.env["SECRET_KEYRING_FILE"] = "/run/sentinel-secrets/keyring-next.json"
+    for operation in ("reencrypt", "verify"):
+        stack.compose("run", "--rm", "--no-deps", "key-maintenance", operation)
+    stack.compose(
+        "up",
+        "--no-deps",
+        "--force-recreate",
+        "--wait",
+        "--wait-timeout",
+        "120",
+        "backend",
+    )
     wait_for(
         lambda: request(backend + "/ready")[0] == 200, "API restart with queued work"
     )
     assert api(backend + f"/evaluations/{run['id']}")["status"] == "pending"
-    stack.compose("start", "worker")
+    stack.compose("up", "--no-deps", "--force-recreate", "-d", "worker")
     wait_for(
         lambda: api(backend + f"/evaluations/{run['id']}")["status"] == "completed",
         "background evaluation",
@@ -482,7 +529,7 @@ def exercise(stack):
         == run["id"]
     )
 
-    # Recreate all containers while retaining only this project's database volume.
+    # Recreate all containers while retaining this project's database/key volumes.
     stack.compose("down", "--timeout", "10")
     stack.compose("up", "--wait", "--wait-timeout", "120")
     assert api(run_url) == run and api(run_url + "/results") == results
