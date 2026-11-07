@@ -73,6 +73,7 @@ test('register, validate, edit keys, manage canaries, evaluate, filter, and dele
   await page.getByRole('button', { name: 'Run evaluation', exact: true }).first().click()
   await expect(page.getByRole('heading', { name: 'Sentinel Security Report' })).toBeVisible()
   const reportURL = page.url()
+  await expect(page.locator('.status-badge')).toHaveText('Completed', { timeout: 20_000 })
   await expect(page.locator('.finding')).toHaveCount(8)
   await expect(page.getByText('4 checks detected undesirable behavior; 0 checks had execution errors.')).toBeVisible({ timeout: 20_000 })
   await page.getByRole('button', { name: 'Not passed (4)' }).click()

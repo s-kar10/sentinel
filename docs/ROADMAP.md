@@ -727,9 +727,9 @@ Locks/pip/Ruff, frontend lint/type/build and Compose configuration passed. Full
 Compose smoke passed demo/security-pack/restart/outage/revocation/deletion paths
 and removed its disposable resources. After the final indistinguishable-404
 refinement, 63 affected service/queue/project tests passed again on both databases.
-Initial hosted Python/Compose checks passed. One browser run hit the existing
-eight-second extraction-report assertion before queued completion; that test now
-explicitly waits up to 20 seconds for completion before asserting all eight errors.
+Initial hosted Python/Compose checks passed. Browser runs exposed missing completion
+waits in the existing eight-case extraction and main CRUD workflows. Both now wait
+up to 20 seconds for the completed status before asserting unchanged verdicts/counts.
 Final hosted results are tracked in the PR; local checks alone are not hosted evidence.
 Developer databases and `.env` files were not changed. Existing deprecation and
 browser teardown warnings remain visible; only desktop Chromium is verified.
