@@ -82,7 +82,7 @@ per-case checkpoints when changing execution. Run PostgreSQL queue tests as well
 as SQLite tests for coordination changes. The deprecated synchronous endpoint
 retains compatibility but has no queue limits/recovery.
 
-Current schema head is `0007_encrypted_credentials`; stop API and workers before migrations.
+Current schema head is `0008_provider_credentials`; stop API and workers before migrations.
 Keep baseline references immutable and distinguish paired behavioral changes from
 errors/missing coverage. Do not claim significance from descriptive repeat rules.
 See [ASYNC_HISTORY.md](docs/ASYNC_HISTORY.md) for exact contracts and limitations.
@@ -127,6 +127,12 @@ P6-3 encrypts target API keys and entire private job payloads with a separate
 private keyring; follow [SECRET_STORAGE.md](docs/SECRET_STORAGE.md). Preserve
 frozen credentials, fail-closed reads, offline transactional rotation and terminal
 payload cleanup. Never regenerate keys for an existing encrypted database.
-Human identity/memberships, provider credential management, complete secret-access
-audits, egress policy and the full security review are unfinished. Do not claim Phase 6
+P6-4 provisions project OpenAI credentials through the private local CLI and records
+lifecycle/snapshot/dispatch metadata; follow [PROVIDER_CREDENTIALS.md](docs/PROVIDER_CREDENTIALS.md).
+Token mode must never fall back to OPENAI_API_KEY. Local environment fallback is
+limited to legacy project 1 without a credential row; revoked rows never fall back.
+Preserve frozen job credentials, actor identity derived from the request principal,
+transactional audit, project-lock ordering and provider-key rotation coverage.
+Human identity/memberships, complete secret-access audits, egress policy and the
+full security review are unfinished. Do not claim Phase 6
 complete or expose the service publicly.

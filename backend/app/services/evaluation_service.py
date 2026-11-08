@@ -12,13 +12,14 @@ from sqlalchemy.orm import Session, selectinload
 from app.attacks import AttackDefinition, get_attack_catalog
 from app.attacks.packs import AttackPack
 from app.auth.scope import owned_targets
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.evaluators.contracts import aggregate
 from app.evaluators.engine import AssertionRegistry, evaluate_assertion, registry
 from app.evaluators.metrics import SCORING_VERSION, WEIGHTS
 from app.evaluators.strategies import MAX_JSON_DEPTH
 from app.judges.runtime import judge_context, public_policy, settings_snapshot
 from app.models import EvaluationRun, EvaluationStatus, TargetApplication, TestResult
+from app.secrets.providers import record, resolve
 from app.services.errors import (
     EvaluationExecutionError,
     InvalidTargetConfigurationError,
@@ -46,16 +47,20 @@ class EvaluationService:
         attacks: Sequence[AttackDefinition] | None = None,
         evaluator_registry: AssertionRegistry = registry,
         judge_runtime: dict | None = None,
+        settings: Settings | None = None,
     ) -> None:
         self.db = db
         self.target_client_factory = target_client_factory
         self.attacks = tuple(attacks if attacks is not None else get_attack_catalog())
         self.evaluator_registry = evaluator_registry
+        self.settings = settings or get_settings()
         self.judge_runtime = (
             judge_runtime
             if judge_runtime is not None
-            else settings_snapshot(get_settings())
+            else settings_snapshot(self.settings)
         )
+
+        self._configured_judge_runtime = self.judge_runtime
 
     def start(
         self, target_id: int, *, attack_pack: AttackPack | None = None
@@ -106,7 +111,7 @@ class EvaluationService:
         """Validate and stage immutable planned results in the caller's transaction."""
         target = self._get_target(target_id)
         self.judge_runtime = {
-            **self.judge_runtime,
+            **self._configured_judge_runtime,
             "project_namespace": target.ownership.project.cache_namespace,
         }
         attacks = attack_pack.definitions() if attack_pack is not None else self.attacks
@@ -134,10 +139,16 @@ class EvaluationService:
             spec["evaluator"] == "llm_judge" for specs in definitions for spec in specs
         )
         if has_judge:
-            if not self.judge_runtime["enabled"] or not self.judge_runtime["api_key"]:
+            if not self.judge_runtime["enabled"]:
                 raise InvalidTargetConfigurationError(
-                    "Semantic judging requires JUDGE_ENABLED and OPENAI_API_KEY on the server."
+                    "Semantic judging requires JUDGE_ENABLED on the server."
                 )
+            self.judge_runtime = resolve(
+                self.db,
+                target.project_id,
+                self.judge_runtime,
+                auth_mode=self.settings.auth_mode,
+            )
             if any(
                 spec["config"]["provider"] != self.judge_runtime["provider"]
                 or spec["config"]["model"] != self.judge_runtime["model"]
@@ -254,6 +265,14 @@ class EvaluationService:
             ).hexdigest()
         self.db.add(run)
         self.db.flush()
+        if has_judge:
+            record(
+                self.db,
+                self.judge_runtime,
+                target.project_id,
+                "snapshotted",
+                run_id=run.id,
+            )
 
         return run, target, attacks, definitions, secrets
 

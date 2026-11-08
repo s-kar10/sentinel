@@ -21,7 +21,7 @@ allowed origin does not authenticate a request. Health, readiness and access-mod
 discovery remain public and contain no application records.
 
 Back up and stop API/workers before applying Alembic revision
-`0007_encrypted_credentials`, following [MIGRATIONS.md](MIGRATIONS.md). Revision 0005 adds token hashes/lifecycle records; 0006 binds existing targets
+`0008_provider_credentials`, following [MIGRATIONS.md](MIGRATIONS.md). Revision 0005 adds token hashes/lifecycle records; 0006 binds existing targets
 and tokens to the legacy project and adds scope to pending private jobs. Startup
 still never creates tables. No new token is created or granted access. Operator provisioning is an explicit local CLI action.
 
@@ -135,8 +135,8 @@ populate the next session or clear its credentials.
 
 Project ownership now scopes API data, jobs and judgment-cache keys. Infrastructure
 remains shared. Target keys and private job payloads are encrypted at rest, while
-provider configuration still uses an installation environment secret (see
-[SECRET_STORAGE.md](SECRET_STORAGE.md)).
+token-mode provider access requires the project's provisioned key (see
+[PROVIDER_CREDENTIALS.md](PROVIDER_CREDENTIALS.md)).
 Arbitrary accepted outbound target URLs remain reachable, and global
 submission/body/storage quotas are incomplete. In-memory browser tokens reduce
 persistence but cannot withstand active same-origin script execution or a

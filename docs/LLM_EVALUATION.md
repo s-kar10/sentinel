@@ -53,7 +53,8 @@ Schema validity does not establish truth or resistance to prompt injection.
 ## Enable and try it
 
 Use the normal [README](../README.md) setup, including migrations and a running
-worker. This phase does not change the main database schema (`0004_history`).
+worker. The current schema head is `0008_provider_credentials`; follow the
+[migration guide](MIGRATIONS.md) for existing data.
 The normal eight-case demo still needs only its synthetic canaries.
 
 For native development, put the following in **`backend/.env`**. For Compose use
@@ -62,10 +63,14 @@ variables and source control:
 
 ```dotenv
 JUDGE_ENABLED=true
-OPENAI_API_KEY=your-key-entered-locally
 JUDGE_MODEL=your-chosen-structured-output-model-snapshot
 JUDGE_TIMEOUT_SECONDS=20
 ```
+
+Provision the project's key using the [private provider CLI](PROVIDER_CREDENTIALS.md).
+In token mode, an environment key never substitutes for project provisioning.
+Local legacy project 1 can still use `OPENAI_API_KEY` from private server settings
+only when it has no credential record; revocation disables that fallback.
 
 Choose a model your account can access that supports Responses structured output;
 prefer an explicit snapshot. No live model or account access was verified here.
@@ -157,7 +162,8 @@ storage. Compose uses `/tmp/sentinel-judge-cache.sqlite3` inside each container;
 it survives worker process restarts but not container replacement. Separate worker
 containers have separate caches. Mount a private writable path only if shared
 local caching is needed. P6-2 adds private project namespaces to cache keys; the
-file, capacity and provider credentials remain shared infrastructure. See
+file and capacity remain shared infrastructure. P6-4 provisions provider keys
+per project. See
 [project boundaries](PROJECT_ISOLATION.md); public exposure remains blocked.
 
 Historical compatibility includes judge definitions and operator policy. Analysis
@@ -187,7 +193,11 @@ deterministic/label disagreements, 6 judge/deterministic disagreements, zero
 execution errors. The fixture intentionally misgrades one cautious refusal.
 Its zero tokens/cost/latency are synthetic, not performance measurements.
 
-After credentials/model are configured, explicitly run live calibration:
+The standalone calibration CLI does not select project credentials or write the
+project admission audit. Its optional live path requires local development settings
+(`AUTH_MODE=local`, `APP_ENVIRONMENT=development`) and a privately configured
+`OPENAI_API_KEY`, in addition to the judge/model settings. Live calibration remains
+explicitly deferred. When authorized separately, invoke it explicitly:
 
 ```sh
 ../.venv/bin/python -m app.judges.calibration \
@@ -224,14 +234,14 @@ intervals or statistically calibrated false-positive rates.
   not general PII detection. `store: false` is not a claim of zero provider retention.
 - **Credentials:** active private queue payloads contain an encrypted frozen judge
   credential, cleared at terminal state, like target credentials. Backups can retain
-  them. Rotation requires dealing with already queued jobs. Phase 6 owns secure
-  secret storage, authorization and tenant isolation.
+  them. Replacement/revocation affects new admission; accepted jobs retain their
+  version. See [project provisioning and audit](PROVIDER_CREDENTIALS.md).
 - **Cost/latency:** semantic judging adds network/model time and possible charges.
   Boundaries limit local work, not an exact billing total. Prefer deterministic
   checks where they answer the question reliably.
 
 Phase 5 now supplies [authorized synthetic security packs](SECURITY_PACKS.md).
 That work does not close the explicitly pending live Phase 4 calibration. Phase 6
-operator/project access and encrypted database credential copies exist; human
-memberships, provider credential management and
-network policy remain unfinished.
+operator/project access, encrypted provider provisioning and admission audit exist;
+human memberships, full secret-access audit, retention and network policy remain
+unfinished.

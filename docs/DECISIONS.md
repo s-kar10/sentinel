@@ -890,3 +890,51 @@ complete credential/request audits and evidence retention remain Phase 6 work.
 Human memberships and egress/resource controls are separate unfinished gates.
 Neither this encryption milestone nor its tests establish public readiness.
 Details and operational steps: [SECRET_STORAGE.md](SECRET_STORAGE.md).
+
+## ADR-020 — Project provider credentials with transactional admission audit
+
+**Problem:** Project-scoped targets and encrypted jobs still used one installation
+provider key. A newly created project could consume that account without explicit
+provisioning. Operators also lacked evidence connecting a credential version to an
+accepted job when replacing or revoking it.
+
+**Alternatives:** Keep a shared environment key; introduce an external secret
+manager and dynamic references in every worker request; or store one encrypted
+credential per project and freeze it at admission. Dynamic resolution would change
+already accepted work after replacement/revocation and add a new dependency.
+
+**Decision:** Add a uniquely project/provider-bound encrypted credential with a
+monotonic version and a non-secret audit table. Provision/replace/revoke through
+the trusted local CLI using private file input; metadata and paginated audit are
+CLI-only. Token-mode semantic submissions require their own project's active key.
+Only local legacy project 1 retains environment fallback when no credential record
+exists. Revocation blocks fallback. Global model/endpoint/timeout policy remains.
+No schema migration automatically propagates an installation key to new projects.
+
+Credential lifecycle and selection acquire the project row lock. Queue submission
+keeps its existing coordinator lock first. Snapshot audit commits with the job;
+worker dispatch audit commits with the lease. Accepted work carries its original
+secret, project and version, and terminal cleanup still removes private payloads.
+Provider identity metadata stays private; it changes cache context, not public
+judge policy. Rotation/verification include the new encrypted column with a
+separate authenticated purpose. Revision 0008 refuses lossy downgrade.
+
+**Reasoning:** This makes provider access an explicit project capability without
+changing the existing provider adapter, evaluator or queue execution contract.
+Transactional evidence avoids successful mutations/jobs without their audit record.
+Locking the project works even before the first credential row exists, avoiding
+concurrent insert/version races in both SQLite and PostgreSQL. No dependency needed.
+
+**Tradeoffs:** Provisioning still trusts host/DB access and does not identify a
+human administrator. Admission events are not a complete decryption/request audit
+or proof of HTTP delivery/billing. Events survive resource deletion, so retention
+policy is still required. Revoking a row cannot revoke old snapshots at the remote
+provider; operators must separately cancel accepted work and revoke issuer keys.
+One shared keyring/worker pool, DB-writer trust and plaintext historical evidence
+remain. Key-management writers must pause during offline re-encryption.
+
+**Future implications:** Human memberships, egress/resource limits, full access
+logs and retention remain separate Phase 6 gates. A future secret manager must
+preserve explicit snapshot/rotation/revocation semantics or version that contract.
+Details: [PROVIDER_CREDENTIALS.md](PROVIDER_CREDENTIALS.md). No public readiness or
+live model calibration is claimed.

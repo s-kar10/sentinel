@@ -30,7 +30,7 @@ def settings_snapshot(settings) -> dict:
         "provider": "openai",
         "model": settings.judge_model,
         "api_key": settings.openai_api_key.get_secret_value()
-        if settings.openai_api_key
+        if settings.openai_api_key and settings.auth_mode == "local"
         else "",
         "endpoint": "https://api.openai.com/v1/responses",
         "timeout": settings.judge_timeout_seconds,
@@ -48,7 +48,17 @@ def public_policy(runtime: dict) -> dict:
     return {
         key: value
         for key, value in runtime.items()
-        if key not in {"api_key", "endpoint", "cache_path", "project_namespace"}
+        if key
+        not in {
+            "api_key",
+            "endpoint",
+            "cache_path",
+            "project_namespace",
+            "credential_id",
+            "credential_version",
+            "credential_project_id",
+            "credential_source",
+        }
     }
 
 

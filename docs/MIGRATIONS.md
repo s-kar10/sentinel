@@ -1,7 +1,7 @@
 # Database migrations
 
 Alembic 1.20.1 manages revisions from `0001_v01_baseline` through current head
-`0007_encrypted_credentials`. Migrations describe
+`0008_provider_credentials`. Migrations describe
 the database structure at each version. They run explicitly before the API starts;
 the API no longer creates tables. Existing target/run/result data is not migrated
 automatically or deleted by adoption.
@@ -17,6 +17,7 @@ automatically or deleted by adoption.
 | `0005_access_tokens` | Operator token hashes, roles, expiry/revocation and credential lifecycle records |
 | `0006_projects` | Organizations/projects, target/token ownership bindings, pending-job scope backfill |
 | `0007_encrypted_credentials` | Encrypt target keys and full private job payloads in place |
+| `0008_provider_credentials` | Project OpenAI credentials and non-secret lifecycle/admission audit |
 
 Back up first. Stop API and workers, build updated images, run the migration
 service, then restart both with the same code. Native users stop both processes,
@@ -24,6 +25,13 @@ run `python -m app.database.migrations upgrade` in `backend`, then restart them.
 Do not run mixed worker/API versions during this maintenance window. Existing
 runs keep their original results and scores; new nullable columns stay null.
 Old pending/running synchronous runs are not automatically turned into jobs.
+
+0008 adds empty provider-credential and audit tables. No environment credential is
+automatically assigned to projects and accepted private payloads are not rewritten.
+Token-mode semantic submissions now require [explicit project provisioning](PROVIDER_CREDENTIALS.md).
+Downgrade refuses any provider credential or audit record, including revoked rows,
+to avoid losing history. The encrypted-storage CLI now rotates/verifies provider
+keys too; stop API/workers and credential-management writers during key maintenance.
 
 0007 requires a separately initialized private keyring to convert populated secret
 fields. Stop API/workers, back up, initialize once, then migrate with the same keys

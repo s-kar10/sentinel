@@ -24,12 +24,15 @@ def rewrite(connection, ring: Keyring, *, verify_only: bool = False) -> dict[str
     else:
         connection.execute(sa.text("SET LOCAL lock_timeout = '5s'"))
         connection.execute(
-            sa.text("LOCK TABLE target_applications, evaluation_jobs IN EXCLUSIVE MODE")
+            sa.text(
+                "LOCK TABLE target_applications, evaluation_jobs, provider_credentials IN EXCLUSIVE MODE"
+            )
         )
     counts = {}
     for name, pk, column, kind, purpose in (
         ("target_applications", "id", "api_key", sa.Text, "target-api-key"),
         ("evaluation_jobs", "run_id", "payload", sa.JSON, "job-payload"),
+        ("provider_credentials", "id", "secret", sa.Text, "provider-api-key"),
     ):
         table = sa.table(name, sa.column(pk, sa.Integer), sa.column(column, kind))
         count = 0

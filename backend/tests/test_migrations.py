@@ -93,7 +93,8 @@ def seed_records(engine) -> tuple[int, int]:
                 http_method="POST",
                 api_key=(
                     configured_keyring().seal("FAKE_MIGRATION_KEY", "target-api-key")
-                    if current_revisions(connection) == ("0007_encrypted_credentials",)
+                    if current_revisions(connection)
+                    in {("0007_encrypted_credentials",), (HEAD,)}
                     else "FAKE_MIGRATION_KEY"
                 ),
                 request_template={"message": ""},
