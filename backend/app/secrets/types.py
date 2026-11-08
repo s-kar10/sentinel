@@ -8,22 +8,28 @@ from app.secrets.codec import SecretStorageError, configured_keyring
 
 
 class EncryptedKey(TypeDecorator):
+    purpose = "target-api-key"
     impl = Text
     cache_ok = True
 
     def process_bind_param(self, value, dialect):
         return (
-            configured_keyring().seal(value, "target-api-key")
+            configured_keyring().seal(value, self.purpose)
             if value is not None
             else None
         )
 
     def process_result_value(self, value, dialect):
         return (
-            configured_keyring().open(value, "target-api-key")
+            configured_keyring().open(value, self.purpose)
             if value is not None
             else None
         )
+
+
+class EncryptedProviderKey(EncryptedKey):
+    purpose = "provider-api-key"
+    cache_ok = True
 
 
 class EncryptedPayload(TypeDecorator):

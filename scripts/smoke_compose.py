@@ -328,6 +328,59 @@ def exercise_security_packs(backend):
     )
 
 
+def exercise_provider_credentials(stack):
+    # Only a synthetic key, created in a new private file inside this test container.
+    stack.compose(
+        "exec",
+        "-T",
+        "backend",
+        "python",
+        "-c",
+        "import os; fd=os.open('/tmp/synthetic-provider-key', os.O_WRONLY|os.O_CREAT|os.O_EXCL, 0o600); "
+        "os.write(fd, b'SYNTHETIC_SMOKE_PROVIDER_KEY'); os.close(fd)",
+    )
+    for _ in range(2):
+        metadata = stack.compose(
+            "exec",
+            "-T",
+            "backend",
+            "python",
+            "-m",
+            "app.secrets.provider_cli",
+            "put",
+            "--project-id",
+            "1",
+            "--input-file",
+            "/tmp/synthetic-provider-key",
+            capture=True,
+        )
+        assert "SYNTHETIC_SMOKE_PROVIDER_KEY" not in metadata
+    assert json.loads(metadata)["version"] == 2
+    stack.compose(
+        "exec",
+        "-T",
+        "backend",
+        "python",
+        "-c",
+        "import os; os.unlink('/tmp/synthetic-provider-key')",
+    )
+    stored = stack.compose(
+        "exec",
+        "-T",
+        "postgres",
+        "psql",
+        "-U",
+        "sentinel",
+        "-d",
+        "sentinel_smoke",
+        "-At",
+        "-c",
+        "SELECT count(*) FROM provider_credentials WHERE secret LIKE 'sntenc1:%' AND secret NOT LIKE '%SYNTHETIC_SMOKE_PROVIDER_KEY%'",
+        capture=True,
+    )
+    assert stored == "1"
+
+
 def exercise(stack):
     stack.compose("run", "--rm", "--build", "--no-deps", "key-init")
     print(f"Starting isolated stack {stack.project}", flush=True)
@@ -371,6 +424,7 @@ def exercise(stack):
         "exec", "-T", "backend", "python", "-m", "app.database.migrations", "check"
     )
     assert stack.counts() == (0, 0, 0, 0)
+    exercise_provider_credentials(stack)
 
     status, headers, _ = request(
         backend + "/targets",
@@ -533,6 +587,50 @@ def exercise(stack):
     stack.compose("down", "--timeout", "10")
     stack.compose("up", "--wait", "--wait-timeout", "120")
     assert api(run_url) == run and api(run_url + "/results") == results
+    # Provider ciphertext was rotated with targets/jobs and survives recreation.
+    verified = json.loads(
+        stack.compose(
+            "exec",
+            "-T",
+            "backend",
+            "python",
+            "-m",
+            "app.secrets.cli",
+            "verify",
+            capture=True,
+        )
+    )
+    assert verified["records"]["provider_credentials"] == 1
+    stack.compose(
+        "exec",
+        "-T",
+        "backend",
+        "python",
+        "-m",
+        "app.secrets.provider_cli",
+        "revoke",
+        "--project-id",
+        "1",
+    )
+    provider_audit = json.loads(
+        stack.compose(
+            "exec",
+            "-T",
+            "backend",
+            "python",
+            "-m",
+            "app.secrets.provider_cli",
+            "audit",
+            "--project-id",
+            "1",
+            capture=True,
+        )
+    )
+    assert [entry["event"] for entry in provider_audit] == [
+        "created",
+        "replaced",
+        "revoked",
+    ]
     assert stack.counts() == (1, 4, 1, 8)
     print(
         "Full stack recreation retained the report; migration startup passed again",

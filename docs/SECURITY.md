@@ -96,6 +96,17 @@ verified access-control milestone, not the full Phase 6 security review. Tests
 cover permission/expiry/revocation failures and cross-project API/worker/cache
 boundaries; see [tested isolation and remaining trust assumptions](PROJECT_ISOLATION.md).
 
+## Project provider admission (P6-4)
+
+Token-mode semantic runs require their project's explicitly provisioned encrypted
+provider key. Lifecycle and admission changes commit with non-secret audit metadata;
+replacement/revocation serializes with submission. Revoked records cannot fall back
+to the environment key. Only local legacy project 1 without a credential record
+retains environment compatibility. Accepted work keeps frozen credentials; local
+revocation does not cancel jobs or revoke a key at the external provider.
+See [scope and operational limits](PROVIDER_CREDENTIALS.md). This is not a full
+request/decryption audit, tamper-proof log or human identity system.
+
 ## Synthetic security fixtures
 
 [Phase 5 packs](SECURITY_PACKS.md) add explicit user/retrieval/tool trust-boundary
@@ -114,7 +125,7 @@ review. Public deployment remains blocked on Phase 6.
 | --- | --- | --- |
 | SSRF and internal network access | Any accepted HTTP(S) target can address backend-reachable services; no DNS/IP/port allowlist or egress enforcement | Before public/multi-user use: explicit authorized destinations, IPv4/IPv6 and DNS rebinding defenses, connection-time enforcement, metadata/private-network policy, and network egress restrictions. Preserve local demo access through an explicit development policy |
 | Access and tenant boundaries | Local mode is unauthenticated within project 1; token mode scopes data/jobs/cache keys, but infrastructure is shared | Human identity/memberships, capacity budgets, future artifact/export scoping and full security review |
-| Sensitive storage | Dedicated target keys and private jobs are encrypted; canary rows, templates/evidence and old backups can retain plaintext | Separate key backups, managed keys/provider credentials, retention and complete access audits |
+| Sensitive storage | Dedicated target/provider keys and private jobs are encrypted; canary rows, templates/evidence and old backups can retain plaintext | Separate key backups, managed keys, retention and complete access audits |
 | Sensitive evidence | New evidence redacts known keys/canaries; other sensitive content, encodings and old raw records can remain | Redaction/retention policy, scoped evidence access, safe exports, deletion/backup policy. Write-only key fields do not protect copies in target output |
 | Secrets in other fields/errors | Templates and URL query strings are readable; validation redaction is field-specific, not comprehensive | Treat all input/output surfaces as potential secrets; use synthetic tests to cover validation, exceptions, logs, and UI. Do not place real secrets in templates/URLs |
 | Request/response resource exhaustion | No application request-body or template depth limit; response cap is checked after decoding/chunk allocation; queued cases/runs now have deadlines; memory/decompression/input allocation is not fully bounded | Bounded input, parser/decompression safeguards, total deadlines, concurrency/rate limits and quotas |

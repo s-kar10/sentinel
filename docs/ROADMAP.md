@@ -16,8 +16,8 @@ Phase 4 is implemented and locally verified; live OpenAI calibration is explicit
 deferred by the user. Phase 5 is implemented and verified with controlled fixtures.
 **Current implementation phase: Phase 6 — Authentication, organizations, and secure secrets.**
 P6-1 operator access, P6-2 project-scoped resources/jobs/cache keys and P6-3
-encrypted target keys/private job payloads are implemented. Human memberships,
-provider credential management, full credential-access audit, network/resource
+encrypted target keys/private job payloads are implemented. P6-4 adds project provider
+credentials and lifecycle/admission audit. Human memberships, full credential-access audit, network/resource
 policy and the full security review remain unfinished. Public deployment stays blocked.
 Phase 0's previously pending automated external verification is recorded below.
 Repository: [s-kar10/sentinel](https://github.com/s-kar10/sentinel), public source
@@ -55,7 +55,7 @@ no Compose services were running for a live stack check (see
 | 3 | Historical analytics and regression detection | Complete locally; immutable baselines, version labels, comparisons, trends and descriptive repeat policy verified |
 | 4 | LLM-based evaluation | Implemented and locally verified; live OpenAI calibration deferred by user |
 | 5 | Real security testing | Complete locally; versioned synthetic packs, safe/vulnerable fixtures, browser and Compose verified |
-| 6 | Authentication, organizations, secure secrets | In progress; access, project isolation and encrypted credential storage implemented; remaining security gates open |
+| 6 | Authentication, organizations, secure secrets | In progress; access, project isolation, encrypted credentials and provider admission audit implemented; remaining security gates open |
 | 7 | GitHub and CI/CD integration | Planned |
 | 8 | Observability and production reliability | Planned; liveness and database readiness exist |
 | 9 | Public API and SDK | Planned; unversioned REST/OpenAPI exists |
@@ -789,9 +789,57 @@ evidence and historical backups can still contain plaintext. Host/process compro
 DB-writer substitution, full access audits, managed key storage and retention remain
 outside this increment. No secure-erasure or public-deployment claim is made.
 
-**Next task within Phase 6:** project-scoped provider credential provisioning and
-credential lifecycle/access audit, preserving frozen-job semantics and redaction.
-Human identity/OIDC memberships, egress/resource policy, retention and the complete
+P6-3 hosted Python, frontend/browser and Compose checks also passed on the
+[merged PR #5 run](https://github.com/s-kar10/sentinel/actions/runs/42427654586).
+
+### P6-4 — Project provider credentials and admission audit (2026-11-08)
+
+- [x] Store one independently provisioned, encrypted OpenAI credential per project;
+  require it for token-mode semantic submissions with no ambient-key fallback.
+- [x] Provide private-file CLI provisioning/replacement, metadata-only listing,
+  revocation and project-filtered paginated audit. Validate bounded private inputs.
+- [x] Serialize lifecycle changes with credential selection using project locks;
+  commit non-secret lifecycle/snapshot/dispatch evidence with the corresponding work.
+- [x] Derive audit actor/token IDs from authenticated context; retain audit after
+  target/run deletion. Preserve encrypted frozen jobs after replacement/revocation.
+- [x] Add revision 0008 without credential fan-out or existing-job rewrites; refuse
+  downgrade that would discard credentials/audit. Extend key rotation/verification
+  to provider storage with distinct field-purpose authentication.
+
+**Implementation:** [PROVIDER_CREDENTIALS.md](PROVIDER_CREDENTIALS.md), ADR-020.
+No new dependency or remote credential-management endpoint. CLI provisioning trusts
+host/DB authority; API roles keep provider keys inaccessible. Only local legacy
+project 1 may use the environment key when no project credential row exists.
+Revocation blocks fallback. Model/endpoint/timeout policies remain installation-wide.
+A job captures the original version; idempotent replay, worker ownership/fencing,
+cache namespaces, redaction and terminal cleanup remain intact.
+
+**Verification:** Full Python checks passed **403 backend tests** with SQLite and
+disposable PostgreSQL, plus **34 demo tests**. Tests cover project/role denial,
+missing/revoked keys, concurrent provisioning and revoke/submission, transactional
+audit failure, raw ciphertext, CLI input/output, key rotation, migration preservation,
+legacy jobs and actual owned target/provider children. **23 local and 5 authenticated
+Chromium workflows**, frontend lint/type/build, dependency lock/pip/Ruff checks and
+Compose configuration passed. The full isolated Compose smoke passed provider
+provision/replace/encryption-key rotation/restart/revoke/audit and the existing
+baseline/security-pack/outage/operator-access/deletion paths, then removed its
+resources. Its first run exposed a cold CLI import cycle masked by prior API imports
+in unit tests; this is fixed and covered by fresh-process CLI tests on both databases.
+Developer databases, `.env` files and keys were not modified. Existing Starlette/AnyIO
+and non-failing browser teardown warnings remain visible. Hosted CI results belong
+to the PR; local checks alone are not hosted evidence. Live model calibration remains
+deferred, and only desktop Chromium is verified.
+
+**Limits:** Audit records establish committed lifecycle/admission, not successful
+HTTP delivery, charges, verified human identity or every decryption/read. CLI/DB
+operators remain trusted; audit is not tamper-proof. Provider revocation is local
+admission control: cancel accepted work and revoke the real key at its issuer
+separately. Shared keyrings/workers, full request/secret-access audit, retention,
+human memberships and egress/resource policy remain unfinished. No public readiness.
+
+**Next task within Phase 6:** enforce outbound destination/egress policy with SSRF
+regression tests while preserving explicitly authorized local demo workflows.
+Human identity/OIDC memberships, quotas, comprehensive audit/retention and the full
 security review remain open. Do not begin Phase 7 or expose the service publicly.
 
 ## Phase 7 — GitHub and CI/CD integration

@@ -274,9 +274,16 @@ for alternatives and tradeoffs.
 
 Initialize the native/Compose keyring once using [SECRET_STORAGE.md](SECRET_STORAGE.md)
 before starting API/workers. Never overwrite an existing keyring or include it in Git.
-Migration head is `0007_encrypted_credentials`. Unit tests create temporary 0600
+Migration head is `0008_provider_credentials`. Unit tests create temporary 0600
 keyrings automatically, browser tests initialize their own key file, and Compose
 smoke initializes a separate key volume. None uses or alters developer keys.
 Encryption, legacy conversion, offline rotation and project isolation run on both
 SQLite and disposable PostgreSQL. The smoke checks encrypted raw database fields
 and retained keys across service recreation.
+
+Provider credential tests use private synthetic files, project-scoped API sessions,
+disposable PostgreSQL schemas and owned loopback HTTP servers. They cover concurrent
+provision/revoke/admission, audit rollback and actual frozen worker credentials.
+Compose smoke provisions/replaces a synthetic key, rotates it with all encrypted
+fields, verifies it after recreation, then checks revocation/audit metadata. No live
+OpenAI request or developer credential is used. See [PROVIDER_CREDENTIALS.md](PROVIDER_CREDENTIALS.md).
