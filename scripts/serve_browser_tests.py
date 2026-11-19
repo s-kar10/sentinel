@@ -58,6 +58,8 @@ def main():
             CORS_ORIGINS="http://127.0.0.1:18473",
             PYTHONPATH=str(ROOT / "backend"),
             TARGET_REQUEST_TIMEOUT_SECONDS="2",
+            TARGET_EGRESS_RULES='{"http://127.0.0.1:18001":["127.0.0.1/32"]}',
+            JUDGE_EGRESS_RULES="{}",
         )
         try:
             subprocess.run(

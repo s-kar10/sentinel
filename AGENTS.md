@@ -133,6 +133,17 @@ Token mode must never fall back to OPENAI_API_KEY. Local environment fallback is
 limited to legacy project 1 without a credential row; revoked rows never fall back.
 Preserve frozen job credentials, actor identity derived from the request principal,
 transactional audit, project-lock ordering and provider-key rotation coverage.
-Human identity/memberships, complete secret-access audits, egress policy and the
-full security review are unfinished. Do not claim Phase 6
+Human identity/memberships, complete secret-access audits, infrastructure egress
+controls and the full security review are unfinished. Do not claim Phase 6
 complete or expose the service publicly.
+
+
+P6-5 enforces operator-owned target/judge origin rules at the HTTP connection
+boundary; follow [EGRESS_POLICY.md](docs/EGRESS_POLICY.md). Preserve default denial,
+all-answer DNS validation, numeric IP pinning, original TLS hostname verification,
+metadata/transition-address denials, and explicit demo grants. Current worker
+policy must reach both isolated children without being accepted from frozen jobs
+or client payloads. Keep blocked destinations as non-retryable execution errors.
+Run owned IPv4/IPv6/TLS regressions, both browser suites and Compose smoke for changes
+to this boundary. Application policy is not an infrastructure firewall or a
+project-specific network entitlement. No live model calibration is implied.

@@ -328,6 +328,42 @@ def exercise_security_packs(backend):
     )
 
 
+def exercise_egress_denial(backend):
+    target = api(
+        backend + "/targets",
+        method="POST",
+        status=201,
+        payload={
+            "name": "Unapproved owned service",
+            "endpoint_url": "http://backend:8000/health",
+            "api_key": "SYNTHETIC_DENIED_KEY",
+            "request_template": {"message": ""},
+            "prompt_field": "message",
+            "response_field": "response",
+        },
+    )
+    target_url = backend + f"/targets/{target['id']}"
+    pack = api(backend + "/attack-packs")[1]
+    pack["attacks"] = pack["attacks"][:1]
+    run = api(
+        target_url + "/evaluation-jobs",
+        method="POST",
+        status=202,
+        payload={"attack_pack": pack},
+    )
+    run_url = backend + f"/evaluations/{run['id']}"
+    wait_for(lambda: api(run_url)["status"] == "completed", "egress denial")
+    results = api(run_url + "/results")
+    assert len(results) == 1 and results[0]["outcome"] == "errored"
+    assert (
+        results[0]["failure_reason"]
+        == "Target destination is not permitted by operator policy."
+    )
+    assert results[0]["response"] is None
+    api(target_url, method="DELETE", status=204)
+    print("Unapproved internal destination blocked through the real worker", flush=True)
+
+
 def exercise_provider_credentials(stack):
     # Only a synthetic key, created in a new private file inside this test container.
     stack.compose(
@@ -566,6 +602,7 @@ def exercise(stack):
     )
 
     exercise_security_packs(backend)
+    exercise_egress_denial(backend)
     assert stack.counts() == (1, 4, 1, 8)
 
     baseline = api(

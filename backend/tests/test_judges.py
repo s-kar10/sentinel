@@ -257,7 +257,7 @@ def document(text=None, **updates):
 
 
 @pytest.fixture
-def owned_provider():
+def owned_provider(allow_owned_http):
     state = {"requests": [], "status": 200, "body": document(), "delay": 0}
 
     class Handler(BaseHTTPRequestHandler):
@@ -284,6 +284,7 @@ def owned_provider():
             pass
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    allow_owned_http(server.server_port)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     state["endpoint"] = f"http://127.0.0.1:{server.server_port}/v1/responses"

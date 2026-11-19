@@ -7,7 +7,10 @@ from typing import Any
 
 import httpx
 
+from app.core.config import get_settings
 from app.models import TargetApplication
+from app.network.policy import EgressDenied
+from app.network.transport import EgressTransport
 from app.utils.json_paths import JsonPathError, get_path_value, with_path_value
 
 
@@ -59,6 +62,7 @@ class TargetClient:
         self.max_response_bytes = max_response_bytes
         self._owns_client = http_client is None
         self._client = http_client or httpx.Client(
+            transport=EgressTransport(get_settings().target_egress_rules),
             timeout=httpx.Timeout(timeout_seconds),
             follow_redirects=False,
             trust_env=False,
@@ -127,6 +131,11 @@ class TargetClient:
                         )
         except TargetRequestError:
             raise
+        except EgressDenied:
+            raise TargetRequestError(
+                "Target destination is not permitted by operator policy.",
+                duration_ms=self._elapsed_ms(started),
+            ) from None
         except httpx.TimeoutException as exc:
             raise TargetRequestError(
                 "Target request timed out.",
