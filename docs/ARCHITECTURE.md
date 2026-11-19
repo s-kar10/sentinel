@@ -6,6 +6,20 @@ historical comparisons, optional OpenAI judgments and synthetic security packs
 calibration pending). The dated audit/verification records below
 are historical evidence, not descriptions of today's missing features.
 
+## Phase 6 outbound HTTP boundary — 2026-11-18
+
+Target and judge adapters share a small HTTPX transport backed by HTTPCore's custom
+network interface. Exact operator origin rules are separate for targets/providers;
+private destinations need extra CIDRs. Every request validates all DNS answers,
+connects only to checked numeric IPs, and retains the original HTTP Host/TLS name.
+Per-request pools avoid connection reuse across checks; redirects/proxies stay off.
+The worker forwards current policy through both subprocess boundaries independently
+of encrypted frozen job credentials. Policy denial is an execution error, not an
+attack verdict. No schema change; no new resolved package versions. See
+[configuration, tests and limits](EGRESS_POLICY.md) and ADR-021. Host/container
+firewall controls, resource budgets, memberships and the full security review are
+still required before public deployment.
+
 ## Phase 6 operator admission boundary — 2026-11-04
 
 An ASGI access middleware runs before route body parsing. In token mode it resolves
@@ -100,7 +114,10 @@ errors; expired leases are recovered on subsequent queue visits.
 Thirteen application tables now exist: `target_applications`, `protected_values`,
 `evaluation_runs`, `test_results`, `evaluation_jobs`, `queue_control`, `baselines`,
 `access_tokens`, `access_audit`, `organizations`, `projects`, `target_projects` and
-`token_projects`. Alembic adds its revision table. Schema head is `0007_encrypted_credentials`.
+`token_projects`. Alembic adds its revision table. Schema head is
+`0008_provider_credentials`. Project provider credentials and
+non-secret admission/lifecycle audit occupy two additional tables; see
+[PROVIDER_CREDENTIALS.md](PROVIDER_CREDENTIALS.md).
 Project bindings are additive one-to-one ownership records; API sessions derive scope
 from the token, while trusted workers verify frozen job ownership. Judge runtimes
 include a private project cache namespace. See [PROJECT_ISOLATION.md](PROJECT_ISOLATION.md).

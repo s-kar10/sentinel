@@ -4,7 +4,9 @@ Target API keys and complete private evaluation-job payloads are encrypted at re
 starting at migration `0007_encrypted_credentials`. This includes frozen provider
 keys and canaries copied into pending work. API shapes, target key replacement/
 clearing, project ownership checks, lease fencing and terminal payload deletion
-remain unchanged. Phase 6 is still unfinished; public hosting remains prohibited.
+remain unchanged. Revision 0008 also encrypts project provider credentials with
+a distinct field purpose; see [PROVIDER_CREDENTIALS.md](PROVIDER_CREDENTIALS.md).
+Phase 6 is still unfinished; public hosting remains prohibited.
 
 ## Why the storage boundary matters
 
@@ -79,7 +81,7 @@ The smoke harness creates its own key volume and removes only its own resources.
 
 ## Encryption-key rotation
 
-Stop API/workers and take protected backups. From `backend`:
+Stop API/workers and credential-management writers, and take protected backups. From `backend`:
 
 ```sh
 ../.venv/bin/python -m app.secrets.cli add-key \
@@ -122,9 +124,10 @@ Replacing or clearing a target's write-only `api_key` through the existing admin
 API affects **new submissions**. Already accepted jobs retain their encrypted
 frozen key. Cancel accepted jobs separately and revoke the actual credential at
 the target/provider to stop future use; cancellation cannot undo in-flight effects.
-Changing `OPENAI_API_KEY` and restarting API/workers similarly affects future
-semantic jobs. The provider key remains an installation-level environment secret;
-this change encrypts its database copies, not the environment or `.env` file.
+Project provider replacement/revocation uses the [private CLI](PROVIDER_CREDENTIALS.md)
+and affects new submissions. Token mode never uses `OPENAI_API_KEY`; only local
+legacy project 1 without a credential row retains that fallback. That environment
+value and `.env` file remain outside database encryption.
 No live OpenAI calibration was performed.
 
 ## Remaining limits
@@ -133,10 +136,9 @@ Decrypted values exist in trusted API/worker memory and private subprocess pipes
 when needed. Both API and worker can decrypt all projects' data; a compromised
 host/process with key access is outside this protection. Keys are not sent to
 case/provider children, only the credentials their work needs. No secret-manager
-service, per-project provider provisioning, full credential-access audit, human
-membership system, evidence-retention policy or egress/abuse gate is implemented.
+service, full credential-access audit, human membership system, evidence-retention policy or egress/abuse gate is implemented.
 
-Only the dedicated target key column and private job payload are encrypted here.
+The dedicated target key, provider credential and private job payload are encrypted.
 Canary rows, request templates, endpoint URLs, historical report evidence and other
 columns can still contain sensitive information. Do not put credentials in those
 fields. Redaction is exact-match and incomplete for encoded/unknown secrets.

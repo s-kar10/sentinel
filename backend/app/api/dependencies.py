@@ -18,11 +18,13 @@ def scoped_db(request: Request, db: Annotated[Session, Depends(get_db)]) -> Sess
     # identity fails closed even if a future route accidentally skips middleware.
     if request.app.state.settings.auth_mode == "local":
         project_id = 1
+        db.info.update(actor_kind="local", token_id=None)
     else:
         principal = getattr(request.state, "principal", None)
         if principal is None:
             raise HTTPException(401, "A valid access token is required.")
         project_id = principal.project_id
+        db.info.update(actor_kind="operator", token_id=principal.token_id)
     db.info["project_id"] = project_id
     return db
 
@@ -42,6 +44,7 @@ def get_evaluation_service(
     return EvaluationService(
         db,
         judge_runtime=settings_snapshot(settings),
+        settings=settings,
         target_client_factory=lambda target: TargetClient(
             target,
             timeout_seconds=settings.target_request_timeout_seconds,

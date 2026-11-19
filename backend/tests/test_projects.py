@@ -465,6 +465,10 @@ def test_real_worker_keeps_project_and_judge_scope(
         )
         with queue_factory() as db:
             db.info["project_id"] = pid
+            from app.secrets.providers import put
+
+            put(db, pid, "FAKE_JUDGE_KEY")
+            db.commit()
             service = JobService(db, settings(tmp_path))
             service.evaluations.judge_runtime["endpoint"] = owned_provider["endpoint"]
             run = service.submit(tid, attack_pack=judge_pack())

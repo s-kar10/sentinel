@@ -274,9 +274,35 @@ for alternatives and tradeoffs.
 
 Initialize the native/Compose keyring once using [SECRET_STORAGE.md](SECRET_STORAGE.md)
 before starting API/workers. Never overwrite an existing keyring or include it in Git.
-Migration head is `0007_encrypted_credentials`. Unit tests create temporary 0600
+Migration head is `0008_provider_credentials`. Unit tests create temporary 0600
 keyrings automatically, browser tests initialize their own key file, and Compose
 smoke initializes a separate key volume. None uses or alters developer keys.
 Encryption, legacy conversion, offline rotation and project isolation run on both
 SQLite and disposable PostgreSQL. The smoke checks encrypted raw database fields
 and retained keys across service recreation.
+
+Provider credential tests use private synthetic files, project-scoped API sessions,
+disposable PostgreSQL schemas and owned loopback HTTP servers. They cover concurrent
+provision/revoke/admission, audit rollback and actual frozen worker credentials.
+Compose smoke provisions/replaces a synthetic key, rotates it with all encrypted
+fields, verifies it after recreation, then checks revocation/audit metadata. No live
+OpenAI request or developer credential is used. See [PROVIDER_CREDENTIALS.md](PROVIDER_CREDENTIALS.md).
+
+
+## Outbound policy checks (P6-5)
+
+[EGRESS_POLICY.md](EGRESS_POLICY.md) documents the required native demo grant and
+Compose defaults. `test_egress.py` covers origin/CIDR validation, mixed DNS answers,
+metadata/transition addresses, rebinding, numeric pinning, real IPv4/IPv6/TLS,
+redirect/proxy behavior, provider separation and current-policy enforcement for
+accepted jobs. IPv6 listener tests explicitly skip if the host cannot bind `::1`.
+The unit tests use exact grants for owned ephemeral listeners; they do not broadly
+allow loopback or contact external targets. Existing HTTPX mock/ASGI clients are
+in-process test seams, not proof of network-policy enforcement.
+
+The local Chromium suite now has 24 workflows, including real denied-destination
+reporting; the five authenticated workflows remain. The Compose smoke also checks
+that an unapproved internal service URL becomes a sanitized execution error,
+while all safe/vulnerable demo packs still run. Native checks need Node 22 even
+when the host's default Node has another major. See the roadmap for completed
+verification rather than treating these test descriptions as results.

@@ -150,6 +150,7 @@ def test_rotation_preserves_pending_work_and_old_key_can_be_removed(
         assert rewrite(connection, ring) == {
             "target_applications": 1,
             "evaluation_jobs": 1,
+            "provider_credentials": 0,
         }
     assert raw_payload(engine, rid) != before
     # Removing an old key before rotation would fail; after rotation all live rows work.

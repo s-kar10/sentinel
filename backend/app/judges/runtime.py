@@ -11,6 +11,7 @@ from hashlib import sha256
 from pathlib import Path
 from random import SystemRandom
 
+from app.core.config import egress_environment
 from app.evaluators.contracts import AssertionOutcome, Outcome
 from app.judges import cache
 from app.judges.contracts import (
@@ -30,7 +31,7 @@ def settings_snapshot(settings) -> dict:
         "provider": "openai",
         "model": settings.judge_model,
         "api_key": settings.openai_api_key.get_secret_value()
-        if settings.openai_api_key
+        if settings.openai_api_key and settings.auth_mode == "local"
         else "",
         "endpoint": "https://api.openai.com/v1/responses",
         "timeout": settings.judge_timeout_seconds,
@@ -48,7 +49,17 @@ def public_policy(runtime: dict) -> dict:
     return {
         key: value
         for key, value in runtime.items()
-        if key not in {"api_key", "endpoint", "cache_path", "project_namespace"}
+        if key
+        not in {
+            "api_key",
+            "endpoint",
+            "cache_path",
+            "project_namespace",
+            "credential_id",
+            "credential_version",
+            "credential_project_id",
+            "credential_source",
+        }
     }
 
 
@@ -70,6 +81,7 @@ def call_provider(
         [sys.executable, "-m", "app.judges.provider_worker"],
         cwd=Path(__file__).resolve().parents[2],
         env={
+            **egress_environment(),
             "PATH": os.defpath,
             "PYTHONPATH": str(Path(__file__).resolve().parents[2]),
         },

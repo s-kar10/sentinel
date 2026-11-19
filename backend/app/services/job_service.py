@@ -15,6 +15,7 @@ from app.core.config import get_settings
 from app.judges.runtime import settings_snapshot
 from app.models import EvaluationRun, EvaluationStatus, TargetApplication
 from app.models.job import EvaluationJob, QueueControl
+from app.secrets.providers import record
 from app.services.errors import (
     ConflictError,
     InvalidTargetConfigurationError,
@@ -71,6 +72,7 @@ class JobService:
             db,
             target_client_factory=lambda _: None,
             judge_runtime=settings_snapshot(self.settings),
+            settings=self.settings,
         )
 
     def _lock(self):
@@ -299,6 +301,16 @@ class JobService:
             run = self.evaluations.get_run(selected.run_id)
             run.status = EvaluationStatus.RUNNING
             run.started_at = run.started_at or datetime.fromtimestamp(now, timezone.utc)
+            runtime = selected.payload.get("judge_runtime")
+            if runtime:
+                record(
+                    self.db,
+                    runtime,
+                    selected.payload["target"]["project_id"],
+                    "dispatched",
+                    run_id=selected.run_id,
+                    worker=True,
+                )
             claim = Claim(
                 selected.run_id,
                 selected.token,
@@ -326,6 +338,10 @@ class JobService:
             and run.target_application_id == target.id
             and frozen.get("id") == target.id
             and frozen.get("project_id") == target.project_id
+            and (
+                "credential_project_id" not in runtime
+                or runtime["credential_project_id"] == target.project_id
+            )
             and (
                 not runtime
                 or runtime.get("project_namespace")

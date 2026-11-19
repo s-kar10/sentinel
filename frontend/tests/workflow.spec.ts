@@ -300,3 +300,19 @@ test('pack loading failure can retry without blocking the baseline', async ({ pa
   await page.getByLabel('Attack pack', { exact: true }).first().selectOption('sentinel-action-boundaries')
   await expect(page.getByLabel('Attack pack', { exact: true }).first()).toHaveValue('sentinel-action-boundaries')
 })
+
+test('blocked destinations are reported as execution errors', async ({ page, request }) => {
+  const target = await (await request.post(`${API}/targets`, { data: {
+    name: 'Unapproved owned API', endpoint_url: `${API}/health`,
+    api_key: 'FAKE_DENIED_KEY', request_template: { message: '' },
+    prompt_field: 'message', response_field: 'response',
+  } })).json()
+  await request.post(`${API}/targets/${target.id}/protected-values`, { data: { name: 'fake', value: canaries.secret } })
+  await page.goto(`/targets/${target.id}`)
+  await page.getByRole('button', { name: 'Run evaluation', exact: true }).first().click()
+  await expect(page.locator('.status-badge')).toHaveText('Completed', { timeout: 20_000 })
+  await expect(page.getByRole('heading', { name: 'Some checks could not be evaluated' })).toBeVisible()
+  await expect(page.getByText('0 checks detected undesirable behavior; 8 checks had execution errors.')).toBeVisible()
+  await expect(page.getByText('Target destination is not permitted by operator policy.', { exact: true })).toHaveCount(8)
+  await expect(page.locator('body')).not.toContainText('FAKE_DENIED_KEY')
+})

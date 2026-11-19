@@ -35,7 +35,7 @@ pipeline. Neither the application nor the demo is intended for public hosting ye
   [completed work versus remaining work](docs/ROADMAP.md).
 - **Boundaries:** [security risks and deployment limitations](docs/SECURITY.md).
 
-The test suite covers 375 backend cases, 34 demo tests and 28 Chromium workflows.
+The test suite covers 403 backend cases, 34 demo tests and 28 Chromium workflows.
 Verification results and the deferred live OpenAI calibration are recorded in the
 roadmap.
 
@@ -47,7 +47,9 @@ Project documentation:
 - [Custom attack packs and API examples](docs/ATTACK_PACKS.md)
 - [Security packs, controlled fixtures and category mappings](docs/SECURITY_PACKS.md)
 - [Operator tokens, API permissions and remaining Phase 6 boundaries](docs/ACCESS_CONTROL.md)
+- [Outbound destination grants, SSRF defenses and local demo setup](docs/EGRESS_POLICY.md)
 - [Encrypted credentials, key backups and rotation](docs/SECRET_STORAGE.md)
+- [Project provider credentials and admission audit](docs/PROVIDER_CREDENTIALS.md)
 - [Background jobs, versioned baselines and historical comparisons](docs/ASYNC_HISTORY.md)
 - [Engine V2: assertions, outcomes, scoring and runnable example](docs/ENGINE_V2.md)
 - [Optional OpenAI judging, setup, calibration and limitations](docs/LLM_EVALUATION.md)
@@ -216,6 +218,7 @@ Use four terminals, starting each at the project root:
 ```bash
 # Terminal 1: SQLite backend (for a fresh database)
 cd backend
+export TARGET_EGRESS_RULES='{"http://127.0.0.1:8001":["127.0.0.1/32"]}'
 mkdir -m 700 -p .secrets
 # First setup only; preserve an existing keyring.
 ../.venv/bin/python -m app.secrets.cli init --output .secrets/keyring.json
@@ -238,6 +241,7 @@ npm run dev
 ```bash
 # Terminal 4: background worker (same backend directory/database as Terminal 1)
 cd backend
+export TARGET_EGRESS_RULES='{"http://127.0.0.1:8001":["127.0.0.1/32"]}'
 ../.venv/bin/python -m app.worker
 ```
 
@@ -343,7 +347,7 @@ ambiguous starting point. A protected-value create request has the shape
 The default local mode preserves the guided demo. Phase 6 now offers
 `AUTH_MODE=token` with revocable, expiring reader/runner/admin credentials and
 browser sign-in. Follow [access setup and rotation](docs/ACCESS_CONTROL.md) after
-applying migration `0007_encrypted_credentials`. Tokens are issued to private files by a
+applying migration `0008_provider_credentials`. Tokens are issued to private files by a
 local CLI; browser storage is memory-only. Token mode requires queued evaluations
 and disables the deprecated synchronous endpoint. Each token is bound to one project;
 [project setup and isolation](docs/PROJECT_ISOLATION.md) explains organizations, legacy
@@ -516,11 +520,12 @@ report, shows a warning, and retries while the run remains pending/running.
   encrypted at rest. Keep the private keyring separate from database backups;
   see [setup and rotation](docs/SECRET_STORAGE.md). Canary rows, templates and
   historical evidence can still be sensitive, and old backups can retain plaintext.
-  Host/process access, credential audits and provider provisioning remain security work.
-- Allowing users to configure arbitrary endpoint URLs creates server-side request
-  forgery and network-scanning risk in a multi-user deployment. Production must add
-  tenant-scoped authentication/authorization, DNS/IP validation, egress policy,
-  redirect controls, and destination allowlists.
+  Host/process access and comprehensive credential/request audits remain security work.
+- Outbound targets now require an exact operator origin grant; private addresses
+  also need explicit CIDRs. DNS answers are checked and pinned at connection time;
+  redirects/proxies remain disabled. Compose grants only its local demo by default.
+  See [egress setup and limits](docs/EGRESS_POLICY.md). Infrastructure firewall rules
+  and project-specific network entitlements remain future work.
 - The backend applies request timeouts and treats target output as untrusted data.
   It also enforces a default 1,000,000-byte response limit. These are not complete
   resource bounds: queued work has deadlines/concurrency/admission limits, but
@@ -543,7 +548,7 @@ report, shows a warning, and retries while the run remains pending/running.
   guarantee identical responses from a live target.
 - Optional operator tokens enforce project-scoped API roles; local mode remains
   unauthenticated within the legacy project. Human memberships, comprehensive request audit, API submission quotas,
-  and provider credential management remain unfinished.
+  resource limits and infrastructure egress controls remain unfinished.
 - The original score weights checks equally. Additive severity-weighted rates must
   be read alongside coverage; neither score certifies security.
 - Versioned migrations and guarded V0.1 adoption exist. Production deployment,
@@ -559,8 +564,9 @@ on GitHub Actions. Phases 1–3 are implemented and verified;
 Phase 4's optional OpenAI evaluator is implemented and locally verified. Live-model
 calibration remains deferred. Phase 5 adds verified synthetic security packs;
 Phase 6 implements operator tokens, project isolation and encrypted credential
-storage. Human memberships, provider credential management, network/resource
-policy and the complete security review remain unfinished.
+storage, project provider provisioning/admission audit and application HTTP egress policy.
+Human memberships, resource limits, infrastructure network controls and the complete
+security review remain unfinished.
 
 Multi-user security, GitHub gates, observability, SDKs and
 cloud deployment follow in separate phases. See the roadmap for acceptance criteria.

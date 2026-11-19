@@ -8,13 +8,13 @@ projects in the same organization are just as isolated at the API as projects in
 different organizations.
 
 This is an application authorization boundary for trusted local installations.
-Human accounts, memberships, OIDC, provider credential management, outbound destination
+Human accounts, memberships, OIDC, outbound destination
 policy, per-project quotas and a full security review remain unfinished. Phase 6
 is not complete and public deployment remains blocked.
 
 ## Upgrade and provision
 
-Back up and stop both API and workers before upgrading to current head `0007_encrypted_credentials` using
+Back up and stop both API and workers before upgrading to current head `0008_provider_credentials` using
 [MIGRATIONS.md](MIGRATIONS.md). The migration creates `organizations`, `projects`,
 `target_projects` and `token_projects`. The latter two tables give each target/token
 one binding, with foreign keys and a project index. This additive approach avoids
@@ -90,7 +90,7 @@ internal compatibility; HTTP creation always supplies authenticated scope, and t
 CLI requires an explicit project. Future resource paths must use the scoped session
 and an ownership predicate, with negative tests.
 
-The coordinator, worker pool, database, provider credentials and cache file remain
+The coordinator, worker pool, database and cache file remain
 shared infrastructure. Project cache keys prevent cross-project cache hits, but do
 not create separate encryption keys, capacity budgets or process/host isolation.
 One project can still contend for global queue/cache capacity. Accepted jobs remain

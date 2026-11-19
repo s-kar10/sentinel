@@ -8,6 +8,7 @@ import sys
 import time
 from pathlib import Path
 
+from app.core.config import egress_environment
 from app.database.migrations import require_current_schema
 from app.database.session import SessionLocal, engine
 from app.secrets.codec import configured_keyring
@@ -29,6 +30,7 @@ def execute_claim(claim: Claim, active) -> tuple[dict, bool] | None:
         [sys.executable, "-m", "app.case_worker"],
         cwd=Path(__file__).resolve().parents[1],
         env={
+            **egress_environment(),
             "PATH": os.defpath,
             "PYTHONPATH": str(Path(__file__).resolve().parents[1]),
         },

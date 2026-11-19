@@ -16,9 +16,10 @@ Phase 4 is implemented and locally verified; live OpenAI calibration is explicit
 deferred by the user. Phase 5 is implemented and verified with controlled fixtures.
 **Current implementation phase: Phase 6 — Authentication, organizations, and secure secrets.**
 P6-1 operator access, P6-2 project-scoped resources/jobs/cache keys and P6-3
-encrypted target keys/private job payloads are implemented. Human memberships,
-provider credential management, full credential-access audit, network/resource
-policy and the full security review remain unfinished. Public deployment stays blocked.
+encrypted target keys/private job payloads are implemented. P6-4 adds project provider
+credentials and lifecycle/admission audit. P6-5 adds application HTTP destination
+policy with connection-time DNS/IP enforcement. Human memberships, full credential-access
+audit, infrastructure network controls, resource limits and the full security review remain unfinished. Public deployment stays blocked.
 Phase 0's previously pending automated external verification is recorded below.
 Repository: [s-kar10/sentinel](https://github.com/s-kar10/sentinel), public source
 with `main` as the primary branch. Credentials, local databases and generated
@@ -55,7 +56,7 @@ no Compose services were running for a live stack check (see
 | 3 | Historical analytics and regression detection | Complete locally; immutable baselines, version labels, comparisons, trends and descriptive repeat policy verified |
 | 4 | LLM-based evaluation | Implemented and locally verified; live OpenAI calibration deferred by user |
 | 5 | Real security testing | Complete locally; versioned synthetic packs, safe/vulnerable fixtures, browser and Compose verified |
-| 6 | Authentication, organizations, secure secrets | In progress; access, project isolation and encrypted credential storage implemented; remaining security gates open |
+| 6 | Authentication, organizations, secure secrets | In progress; access, project isolation, encrypted credentials, provider audit and HTTP egress policy implemented; remaining security gates open |
 | 7 | GitHub and CI/CD integration | Planned |
 | 8 | Observability and production reliability | Planned; liveness and database readiness exist |
 | 9 | Public API and SDK | Planned; unversioned REST/OpenAPI exists |
@@ -789,10 +790,104 @@ evidence and historical backups can still contain plaintext. Host/process compro
 DB-writer substitution, full access audits, managed key storage and retention remain
 outside this increment. No secure-erasure or public-deployment claim is made.
 
-**Next task within Phase 6:** project-scoped provider credential provisioning and
-credential lifecycle/access audit, preserving frozen-job semantics and redaction.
-Human identity/OIDC memberships, egress/resource policy, retention and the complete
-security review remain open. Do not begin Phase 7 or expose the service publicly.
+P6-3 hosted Python, frontend/browser and Compose checks also passed on the
+[merged PR #5 run](https://github.com/s-kar10/sentinel/actions/runs/42427654586).
+
+### P6-4 — Project provider credentials and admission audit (2026-11-08)
+
+- [x] Store one independently provisioned, encrypted OpenAI credential per project;
+  require it for token-mode semantic submissions with no ambient-key fallback.
+- [x] Provide private-file CLI provisioning/replacement, metadata-only listing,
+  revocation and project-filtered paginated audit. Validate bounded private inputs.
+- [x] Serialize lifecycle changes with credential selection using project locks;
+  commit non-secret lifecycle/snapshot/dispatch evidence with the corresponding work.
+- [x] Derive audit actor/token IDs from authenticated context; retain audit after
+  target/run deletion. Preserve encrypted frozen jobs after replacement/revocation.
+- [x] Add revision 0008 without credential fan-out or existing-job rewrites; refuse
+  downgrade that would discard credentials/audit. Extend key rotation/verification
+  to provider storage with distinct field-purpose authentication.
+
+**Implementation:** [PROVIDER_CREDENTIALS.md](PROVIDER_CREDENTIALS.md), ADR-020.
+No new dependency or remote credential-management endpoint. CLI provisioning trusts
+host/DB authority; API roles keep provider keys inaccessible. Only local legacy
+project 1 may use the environment key when no project credential row exists.
+Revocation blocks fallback. Model/endpoint/timeout policies remain installation-wide.
+A job captures the original version; idempotent replay, worker ownership/fencing,
+cache namespaces, redaction and terminal cleanup remain intact.
+
+**Verification:** Full Python checks passed **403 backend tests** with SQLite and
+disposable PostgreSQL, plus **34 demo tests**. Tests cover project/role denial,
+missing/revoked keys, concurrent provisioning and revoke/submission, transactional
+audit failure, raw ciphertext, CLI input/output, key rotation, migration preservation,
+legacy jobs and actual owned target/provider children. **23 local and 5 authenticated
+Chromium workflows**, frontend lint/type/build, dependency lock/pip/Ruff checks and
+Compose configuration passed. The full isolated Compose smoke passed provider
+provision/replace/encryption-key rotation/restart/revoke/audit and the existing
+baseline/security-pack/outage/operator-access/deletion paths, then removed its
+resources. Its first run exposed a cold CLI import cycle masked by prior API imports
+in unit tests; this is fixed and covered by fresh-process CLI tests on both databases.
+Developer databases, `.env` files and keys were not modified. Existing Starlette/AnyIO
+and non-failing browser teardown warnings remain visible. Hosted CI results belong
+to the PR; local checks alone are not hosted evidence. Live model calibration remains
+deferred, and only desktop Chromium is verified.
+
+**Limits:** Audit records establish committed lifecycle/admission, not successful
+HTTP delivery, charges, verified human identity or every decryption/read. CLI/DB
+operators remain trusted; audit is not tamper-proof. Provider revocation is local
+admission control: cancel accepted work and revoke the real key at its issuer
+separately. Shared keyrings/workers, full request/secret-access audit, retention,
+human memberships and egress/resource policy remain unfinished. No public readiness.
+
+### P6-5 — Outbound destination policy (2026-11-18)
+
+- [x] Require installation-owned exact origin grants for target/judge HTTP; keep
+  separate rules and explicit private/loopback CIDRs. Default-deny targets and
+  preserve the local demo through explicit native/Compose/test grants.
+- [x] Validate all DNS answers at TCP connection time, reject metadata/special-use
+  and well-known transition addresses, and connect only to checked numeric IPs.
+  Preserve original HTTP Host, TLS SNI and certificate hostname verification.
+- [x] Pass current worker policy through isolated case/provider environments;
+  never accept grants from jobs/client payloads. Preserve frozen credentials,
+  ownership, leases/fencing and checkpoints. Denial is a non-retryable execution error.
+- [x] Cover exact origin/port confusion, mixed DNS answers, rebinding, private and
+  metadata denial, real IPv4/IPv6/TLS, proxy/redirect behavior, provider separation,
+  queued policy changes and browser report coverage with owned fixtures.
+
+**Implementation:** [EGRESS_POLICY.md](EGRESS_POLICY.md), ADR-021. The small HTTPX
+transport uses HTTPCore's documented network backend; the existing locked 1.0.9
+version is now a direct dependency. No resolved-package or schema change. Each
+request gets a fresh pool and DNS check. Native targets need explicit grants;
+Compose grants its demo's exact origin on RFC1918 Docker networks. Rules are
+installation-wide, apply to all paths on an origin and take effect after restart.
+Existing target records/jobs remain intact; registration does not probe a target.
+
+**Verification:** Full Python checks passed **455 backend tests** with
+SQLite/disposable PostgreSQL and **34 demo tests**; this includes all **52 new
+SSRF/transport cases**, with real IPv6 and TLS tests passing without skips.
+**24 local and 5 authenticated Chromium workflows**, frontend lint/type/build,
+lock/pip/Ruff and Compose configuration checks passed. The full isolated Compose
+smoke passed permitted demo/security-pack workflows and the new internal-destination
+denial, plus queue recovery, credential rotation, recreation, database outage,
+operator access and deletion; it removed its disposable resources. Existing
+Starlette/AnyIO and non-failing worker-shutdown traceback warnings remain visible.
+Hosted CI results are tracked in the PR; local success alone is not hosted evidence.
+No external HTTP target or live OpenAI calibration was used. Developer data/keys
+were unchanged. Only desktop Chromium is browser-tested.
+
+**Limits:** This is application HTTP enforcement, not an infrastructure firewall or
+project-specific network entitlement. Trusted host code, DNS/database traffic,
+custom routing/translation and approved targets' own side effects are outside the
+boundary. Connection reuse is sacrificed for straightforward revalidation; no
+performance claim. DNS resolution has no independent socket deadline; queued
+children retain process deadlines, but the deprecated synchronous route does not.
+Cached judgments make no new provider request. The complete security review and
+public-deployment gates remain open.
+
+**Next task within Phase 6:** bound request bodies and queued admission with
+project-aware resource limits, preserving atomic submissions and lease recovery.
+Human identity/OIDC memberships, infrastructure egress restrictions, comprehensive
+audit/retention and the full security review also remain open. Do not begin Phase 7
+or expose the service publicly.
 
 ## Phase 7 — GitHub and CI/CD integration
 
