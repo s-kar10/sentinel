@@ -4,6 +4,7 @@ Run from any directory: python3.12 scripts/smoke_compose.py
 Only Docker Compose and the Python standard library are required.
 """
 
+import http.client
 import json
 import os
 import re
@@ -364,6 +365,24 @@ def exercise_egress_denial(backend):
     print("Unapproved internal destination blocked through the real worker", flush=True)
 
 
+def exercise_request_body_limit(backend):
+    """A declared oversized body is refused by the real server without waiting."""
+    host, port = backend.removeprefix("http://").split(":")
+    connection = http.client.HTTPConnection(host, int(port), timeout=15)
+    try:
+        connection.putrequest("POST", "/targets")
+        connection.putheader("Content-Type", "application/json")
+        connection.putheader("Content-Length", str(1_048_577))
+        connection.endheaders(b"{")  # Only one byte is ever sent.
+        response = connection.getresponse()
+        assert response.status == 413, response.status
+        assert b"size limit" in response.read()
+    finally:
+        connection.close()
+    assert api(backend + "/targets") == []
+    print("Oversized request body rejected before parsing", flush=True)
+
+
 def exercise_provider_credentials(stack):
     # Only a synthetic key, created in a new private file inside this test container.
     stack.compose(
@@ -459,6 +478,7 @@ def exercise(stack):
     stack.compose(
         "exec", "-T", "backend", "python", "-m", "app.database.migrations", "check"
     )
+    exercise_request_body_limit(backend)
     assert stack.counts() == (0, 0, 0, 0)
     exercise_provider_credentials(stack)
 

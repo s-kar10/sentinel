@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     target_request_timeout_seconds: float = Field(default=10.0, gt=0, le=60)
     target_max_response_bytes: int = Field(default=1_000_000, ge=1_024, le=10_000_000)
     target_egress_rules: dict[str, list[str]] = Field(default_factory=dict)
+    # Resource limits applied before JSON parsing and at queued admission.
+    max_request_body_bytes: int = Field(default=1_048_576, ge=65_536, le=10_485_760)
+    queue_max_active_runs_per_project: int = Field(default=10, ge=1, le=1_000)
+    queue_max_active_runs: int = Field(default=50, ge=1, le=10_000)
     judge_egress_rules: dict[str, list[str]] = Field(
         default_factory=lambda: {"https://api.openai.com": []}
     )
@@ -71,6 +75,14 @@ class Settings(BaseSettings):
     def restrict_local_access(self):
         if self.auth_mode == "local" and self.app_environment != "development":
             raise ValueError("Local access mode is only allowed in development.")
+        return self
+
+    @model_validator(mode="after")
+    def consistent_queue_limits(self):
+        if self.queue_max_active_runs_per_project > self.queue_max_active_runs:
+            raise ValueError(
+                "The per-project queue limit cannot exceed the installation limit."
+            )
         return self
 
     @field_validator(

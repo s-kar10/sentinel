@@ -102,6 +102,8 @@ query/index scaling belongs to measured Phase 11 work.
 | --- | --- |
 | Global concurrency | At most 2 valid case leases across all workers |
 | Per-target concurrency | At most 1 valid case lease per registered target ID |
+| Project fairness | A claim prefers the eligible case whose project holds the fewest active leases, then FIFO; work-conserving |
+| Admission quotas | At most 10 unfinished, unexpired runs per project and 50 per installation by default (configurable); excess submissions get 429 and create nothing |
 | Global admission rate | At least 0.5 seconds between case claims, including retries; no accumulated burst credit |
 | Case attempt deadline | 60 seconds including child startup/HTTP/assertions; process creation and OS scheduling can add delay |
 | HTTP operation timeout / response cap | Frozen from API settings at submission; defaults 10 seconds / 1,000,000 bytes |
@@ -118,7 +120,10 @@ a killed supervisor cannot leave an indefinitely streaming attempt behind.
 
 The rate is a **dispatch admission limit**, not an exact spacing guarantee for
 network arrival times. Clock synchronization is required for leases across hosts.
-There is no quota on the number of queued submissions or tenant budget yet.
+Admission quotas count runs inside the coordinator-locked submission transaction,
+so concurrent submissions cannot overshoot; idempotent replays bypass them. They
+are installation-wide settings, not per-project budgets or cost limits. See
+[RESOURCE_LIMITS.md](RESOURCE_LIMITS.md).
 
 Delivery is **at least once**: a target might receive a request before the worker
 dies, while Sentinel has not saved its result. Retrying can send it again. Fencing

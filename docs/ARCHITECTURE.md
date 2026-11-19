@@ -6,6 +6,18 @@ historical comparisons, optional OpenAI judgments and synthetic security packs
 calibration pending). The dated audit/verification records below
 are historical evidence, not descriptions of today's missing features.
 
+## Phase 6 request and queue resource limits — 2026-11-19
+
+Middleware order is CORS → access → body limit → routing. The body-limit layer
+rejects a declared oversize `Content-Length` before reading and counts streamed
+bytes, so schema validation never sees an over-limit body; token mode still
+answers anonymous callers with 401 first. Queued submission counts unfinished,
+unexpired runs for the target's project and the installation while holding the
+existing coordinator lock, in the transaction that would insert the run; refusals
+are 429 and roll back. Claims prefer the project with the fewest active leases.
+No schema change or dependency. See [RESOURCE_LIMITS.md](RESOURCE_LIMITS.md) and
+ADR-022. Per-project budgets, edge rate limits and retention remain open.
+
 ## Phase 6 outbound HTTP boundary — 2026-11-18
 
 Target and judge adapters share a small HTTPX transport backed by HTTPCore's custom

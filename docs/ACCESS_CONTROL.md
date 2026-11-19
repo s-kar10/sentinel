@@ -137,8 +137,8 @@ Project ownership now scopes API data, jobs and judgment-cache keys. Infrastruct
 remains shared. Target keys and private job payloads are encrypted at rest, while
 token-mode provider access requires the project's provisioned key (see
 [PROVIDER_CREDENTIALS.md](PROVIDER_CREDENTIALS.md)).
-Arbitrary accepted outbound target URLs remain reachable, and global
-submission/body/storage quotas are incomplete. In-memory browser tokens reduce
+Outbound target HTTP needs operator origin grants (P6-5). Request bodies and
+queued submissions are bounded (P6-6); storage and per-project budgets are not. In-memory browser tokens reduce
 persistence but cannot withstand active same-origin script execution or a
 compromised browser/host. API clients and browser tooling can still record their
 own headers; never collect real tokens in test traces or logs.

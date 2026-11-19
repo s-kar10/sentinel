@@ -19,3 +19,7 @@ class EvaluationExecutionError(SentinelServiceError):
 
 class ConflictError(SentinelServiceError):
     """An immutable identity already exists with different contents."""
+
+
+class CapacityError(SentinelServiceError):
+    """Admission would exceed a project or installation resource limit."""

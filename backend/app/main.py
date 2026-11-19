@@ -12,6 +12,7 @@ from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 from sqlalchemy import Engine
 
+from app.api.body_limit import RequestBodyLimitMiddleware
 from app.api.router import api_router
 from app.auth.middleware import AccessMiddleware
 from app.auth.policy import PUBLIC_GET
@@ -20,6 +21,7 @@ from app.database.migrations import require_current_schema
 from app.database.session import engine
 from app.secrets.codec import SecretStorageError, configured_keyring
 from app.services.errors import (
+    CapacityError,
     ConflictError,
     EvaluationExecutionError,
     InvalidTargetConfigurationError,
@@ -71,6 +73,12 @@ def create_app(
     )
     application.state.database_engine = resolved_engine
     application.state.settings = resolved_settings
+    # Added first, so it runs inside authentication: token mode rejects anonymous
+    # callers without reading their body; both modes bound bodies before parsing.
+    application.add_middleware(
+        RequestBodyLimitMiddleware,
+        max_bytes=resolved_settings.max_request_body_bytes,
+    )
     application.add_middleware(
         AccessMiddleware,
         engine=resolved_engine,
@@ -121,6 +129,10 @@ def create_app(
     @application.exception_handler(ConflictError)
     async def conflict(_: Request, exc: ConflictError) -> JSONResponse:
         return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+    @application.exception_handler(CapacityError)
+    async def over_capacity(_: Request, exc: CapacityError) -> JSONResponse:
+        return JSONResponse(status_code=429, content={"detail": str(exc)})
 
     @application.exception_handler(ResourceNotFoundError)
     async def resource_not_found(

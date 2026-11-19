@@ -527,10 +527,11 @@ report, shows a warning, and retries while the run remains pending/running.
   See [egress setup and limits](docs/EGRESS_POLICY.md). Infrastructure firewall rules
   and project-specific network entitlements remain future work.
 - The backend applies request timeouts and treats target output as untrusted data.
-  It also enforces a default 1,000,000-byte response limit. These are not complete
-  resource bounds: queued work has deadlines/concurrency/admission limits, but
-  request bodies, decompression, submission quotas, the legacy synchronous route
-  and retention still need controls.
+  It also enforces a default 1,000,000-byte response limit. Request bodies are capped
+  before parsing (default 1 MiB) and queued submissions have per-project and
+  installation quotas; see [resource limits](docs/RESOURCE_LIMITS.md). Response
+  decompression, request rates, the legacy synchronous route and retention still
+  need controls.
 - Compose defaults are development credentials and expose database/API ports to the
   host. Replace them and narrow network exposure outside local development.
 
@@ -547,8 +548,8 @@ report, shows a warning, and retries while the run remains pending/running.
   or automatic deployment gates. Saved versioned snapshots are redacted and cannot
   guarantee identical responses from a live target.
 - Optional operator tokens enforce project-scoped API roles; local mode remains
-  unauthenticated within the legacy project. Human memberships, comprehensive request audit, API submission quotas,
-  resource limits and infrastructure egress controls remain unfinished.
+  unauthenticated within the legacy project. Human memberships, comprehensive request audit, per-project budgets, request
+  rate limits and infrastructure egress controls remain unfinished.
 - The original score weights checks equally. Additive severity-weighted rates must
   be read alongside coverage; neither score certifies security.
 - Versioned migrations and guarded V0.1 adoption exist. Production deployment,
@@ -564,9 +565,9 @@ on GitHub Actions. Phases 1–3 are implemented and verified;
 Phase 4's optional OpenAI evaluator is implemented and locally verified. Live-model
 calibration remains deferred. Phase 5 adds verified synthetic security packs;
 Phase 6 implements operator tokens, project isolation and encrypted credential
-storage, project provider provisioning/admission audit and application HTTP egress policy.
-Human memberships, resource limits, infrastructure network controls and the complete
-security review remain unfinished.
+storage, project provider provisioning/admission audit, application HTTP egress policy and
+request/queue resource limits. Human memberships, per-project budgets,
+infrastructure network controls and the complete security review remain unfinished.
 
 Multi-user security, GitHub gates, observability, SDKs and
 cloud deployment follow in separate phases. See the roadmap for acceptance criteria.

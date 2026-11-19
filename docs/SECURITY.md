@@ -35,7 +35,8 @@ Credentials, canaries, endpoint URLs, templates, and responses can be sensitive.
   and bounded collections/fields before run creation or target contact. Custom
   executable/imported definitions are not accepted. Format 2 regex/schema checks
   use isolated children with input/time limits and a restricted schema profile. The 65,536-byte
-  normalized pack limit runs after JSON parsing, not before body allocation.
+  normalized pack limit runs after JSON parsing; a separate request-body limit
+  (default 1 MiB, see [RESOURCE_LIMITS.md](RESOURCE_LIMITS.md)) runs before it.
 - Selected validation inputs (`api_key`, `value`, `endpoint_url`, `attack_pack`, `versions`) are redacted.
   SQLAlchemy hides bound parameters. Expected transport errors use generic text
   rather than upstream exception content.
@@ -95,7 +96,7 @@ See [scope, threat boundaries and limits](ACCESS_CONTROL.md).
 
 Tokens address only their bound project's data. Target keys and active private jobs
 are encrypted under an installation keyring; revoking an operator token does not
-cancel accepted work. Request quotas remain unfinished; P6-5 adds installation-wide HTTP destination rules. This is a
+cancel accepted work. P6-5 adds installation-wide HTTP destination rules; P6-6 adds pre-parse body limits and project/installation queued-admission quotas. This is a
 verified access-control milestone, not the full Phase 6 security review. Tests
 cover permission/expiry/revocation failures and cross-project API/worker/cache
 boundaries; see [tested isolation and remaining trust assumptions](PROJECT_ISOLATION.md).
@@ -132,8 +133,8 @@ review. Public deployment remains blocked on Phase 6.
 | Sensitive storage | Dedicated target/provider keys and private jobs are encrypted; canary rows, templates/evidence and old backups can retain plaintext | Separate key backups, managed keys, retention and complete access audits |
 | Sensitive evidence | New evidence redacts known keys/canaries; other sensitive content, encodings and old raw records can remain | Redaction/retention policy, scoped evidence access, safe exports, deletion/backup policy. Write-only key fields do not protect copies in target output |
 | Secrets in other fields/errors | Templates and URL query strings are readable; validation redaction is field-specific, not comprehensive | Treat all input/output surfaces as potential secrets; use synthetic tests to cover validation, exceptions, logs, and UI. Do not place real secrets in templates/URLs |
-| Request/response resource exhaustion | No application request-body or template depth limit; response cap is checked after decoding/chunk allocation; queued cases/runs now have deadlines; memory/decompression/input allocation is not fully bounded | Bounded input, parser/decompression safeguards, total deadlines, concurrency/rate limits and quotas |
-| Run/API abuse | Queue limits/cancellation/idempotency exist, but queued submission count is unbounded and the local-mode synchronous route bypasses queue controls (disabled in token mode) | Gate every execution path, bound queue size and add authenticated tenant budgets before exposure |
+| Request/response resource exhaustion | Request bodies are bounded before parsing (default 1 MiB; JSON depth only by parser recursion); response cap is checked after decoding/chunk allocation; queued cases/runs now have deadlines; memory/decompression/input allocation is not fully bounded | Bounded input, parser/decompression safeguards, total deadlines, concurrency/rate limits and quotas |
+| Run/API abuse | Queue limits/cancellation/idempotency, per-project and installation unfinished-run quotas and lease-balanced dispatch exist; no request-rate/connection limits or per-project budgets; the local-mode synchronous route bypasses queue controls (disabled in token mode) | Edge rate/connection limits, case/cost budgets and per-project entitlements before exposure |
 | Regex execution cost | Format 2 regex/schema use bounded isolated children; process scheduling/startup and overall resource usage remain operational concerns | Retain limits and measure workloads; expand schema features only with resource/security review |
 | Database operations | P0-2 adds versioned migrations, guarded legacy adoption, startup revision checks, and documented/tested backup/restore procedures; target deletion still cascades history | Run migrations during a controlled maintenance window; protect backups and validate restoration. Automated production backup/recovery remains required before hosting |
 | Dependency/container vulnerabilities | P0-3 adds hash-checked Python locks and a tested update workflow. A point-in-time npm audit found three affected packages, patched within existing ranges; the repeated npm audit reported zero findings. Python/container vulnerability scanning is still unverified | Establish repeatable scanning and release maintenance; hashes and passing tests do not establish package safety |

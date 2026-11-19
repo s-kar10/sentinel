@@ -8,8 +8,9 @@ projects in the same organization are just as isolated at the API as projects in
 different organizations.
 
 This is an application authorization boundary for trusted local installations.
-Human accounts, memberships, OIDC, outbound destination
-policy, per-project quotas and a full security review remain unfinished. Phase 6
+Human accounts, memberships, OIDC, per-project configurable budgets and a full
+security review remain unfinished. Installation-configured per-project queue
+quotas exist; see [RESOURCE_LIMITS.md](RESOURCE_LIMITS.md). Phase 6
 is not complete and public deployment remains blocked.
 
 ## Upgrade and provision

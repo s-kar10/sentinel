@@ -989,3 +989,45 @@ network entitlements. Continue resource/admission limits, human memberships,
 retention/audit and the full Phase 6 security review. Public exposure remains blocked.
 See [EGRESS_POLICY.md](EGRESS_POLICY.md) for setup, migration-free compatibility,
 implementation boundaries, primary design references and verification coverage.
+
+## ADR-022 — Pre-parse body limits and lock-serialized project admission quotas
+
+**Problem:** Field-level schema limits run after the full request body is buffered,
+and `request_template` has no field bound, so one request could force unbounded
+allocation. Queue workers had concurrency/rate limits, but admission was unbounded:
+one project could fill the queue and, with two targets, hold both global slots.
+
+**Alternatives:** Rely on a reverse proxy for body limits; add a separate
+rate-limiting service or Redis token bucket; store per-project budgets in a new
+table with an admin API; enforce quotas with a database trigger; or count unfinished
+work inside the existing queue coordinator transaction.
+
+**Decision:** Add an ASGI middleware, inside authentication, that rejects a declared
+oversize `Content-Length` with 413 before reading and counts streamed bytes,
+raising a Starlette `HTTPException(413)` that FastAPI re-raises during parsing.
+Add installation-configured per-project and installation-wide caps on unfinished,
+unexpired queued runs. Check them after taking the existing coordinator lock and
+before inserting the run, in the same transaction; idempotent replays return before
+the check. Refusals are 429 and leave no rows. Dispatch prefers the eligible case
+whose project holds the fewest active leases, then FIFO.
+
+**Reasoning:** Bounding bytes before parsing is the only place that limits
+allocation; keeping it in the app makes native, Compose and test stacks behave the
+same without requiring a proxy. Every queue mutation already serializes on the
+coordinator row, so counting there is atomic on both SQLite and PostgreSQL with no
+new infrastructure, schema or dependency. Least-active-leases selection is a
+one-line, work-conserving fairness rule that leaves single-project ordering intact.
+
+**Tradeoffs:** Limits are installation-wide settings applied at restart; there are
+no per-project entitlements. Quotas count runs, not cases, tokens or spend. The
+installation-full message confirms that shared capacity exists. Counting adds a
+small query to each submission under the coordinator lock. Fairness balances
+current leases only, not historical consumption. There is no request-rate,
+connection or slow-client limit in the app, and the local synchronous route is not
+covered by queue quotas.
+
+**Future implications:** Per-project budgets with stored entitlements, case- or
+cost-based quotas, request-rate limits at the edge and evidence/storage retention
+can build on the same admission point. The full Phase 6 security review should
+exercise these limits against real deployment infrastructure. Public exposure
+remains blocked. See [RESOURCE_LIMITS.md](RESOURCE_LIMITS.md).

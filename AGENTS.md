@@ -147,3 +147,9 @@ or client payloads. Keep blocked destinations as non-retryable execution errors.
 Run owned IPv4/IPv6/TLS regressions, both browser suites and Compose smoke for changes
 to this boundary. Application policy is not an infrastructure firewall or a
 project-specific network entitlement. No live model calibration is implied.
+
+P6-6 bounds request bodies before parsing and caps unfinished queued runs per
+project and installation; follow [RESOURCE_LIMITS.md](docs/RESOURCE_LIMITS.md).
+Keep quota counting inside the coordinator-locked submission transaction, let
+idempotent replays bypass quotas, keep refusals row-free (429) and keep dispatch
+work-conserving. Run the limit tests on both SQLite and PostgreSQL.

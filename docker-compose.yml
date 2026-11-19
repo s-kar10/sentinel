@@ -62,6 +62,9 @@ services:
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-sentinel_dev_password}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       TARGET_REQUEST_TIMEOUT_SECONDS: ${TARGET_REQUEST_TIMEOUT_SECONDS:-10}
+      MAX_REQUEST_BODY_BYTES: ${MAX_REQUEST_BODY_BYTES:-1048576}
+      QUEUE_MAX_ACTIVE_RUNS_PER_PROJECT: ${QUEUE_MAX_ACTIVE_RUNS_PER_PROJECT:-10}
+      QUEUE_MAX_ACTIVE_RUNS: ${QUEUE_MAX_ACTIVE_RUNS:-50}
       # Exact demo origin only; private CIDRs accommodate Docker's dynamic subnet.
       TARGET_EGRESS_RULES: '${TARGET_EGRESS_RULES:-{"http://demo-target:8001":["10.0.0.0/8","172.16.0.0/12","192.168.0.0/16"]}}'
       JUDGE_EGRESS_RULES: '${JUDGE_EGRESS_RULES:-{"https://api.openai.com":[]}}'
