@@ -1,5 +1,6 @@
 """Isolated SQLite and FastAPI fixtures for backend behavior tests."""
 
+import json
 from collections.abc import Generator
 from pathlib import Path
 from typing import Any
@@ -25,6 +26,20 @@ def private_keyring(tmp_path, monkeypatch):
     get_settings.cache_clear()
     yield path
     get_settings.cache_clear()
+
+
+@pytest.fixture
+def allow_owned_http(monkeypatch):
+    """Grant only the exact ephemeral listener owned by the calling fixture."""
+
+    def allow(port):
+        rules = json.dumps({f"http://127.0.0.1:{port}": ["127.0.0.1/32"]})
+        monkeypatch.setenv("TARGET_EGRESS_RULES", rules)
+        monkeypatch.setenv("JUDGE_EGRESS_RULES", rules)
+        get_settings.cache_clear()
+        return rules
+
+    return allow
 
 
 @pytest.fixture

@@ -938,3 +938,54 @@ logs and retention remain separate Phase 6 gates. A future secret manager must
 preserve explicit snapshot/rotation/revocation semantics or version that contract.
 Details: [PROVIDER_CREDENTIALS.md](PROVIDER_CREDENTIALS.md). No public readiness or
 live model calibration is claimed.
+
+## ADR-021 — Operator origin grants with connection-time address enforcement
+
+**Problem:** An otherwise valid target URL could direct credential-bearing requests
+at internal services or metadata endpoints. DNS validation before registration
+would leave a time-of-check/time-of-use gap; frozen queued endpoints can execute
+long after registration. Provider HTTP needs the same network boundary.
+
+**Alternatives:** Rely only on URL validation; resolve at admission then let HTTPX
+resolve again; require an external egress proxy immediately; or enforce origin and
+address policy in the existing synchronous HTTP transport. A proxy/firewall remains
+useful defense in depth, but is not necessary to close the application resolver gap.
+
+**Decision:** Separate installation-owned target and judge origin maps. Default
+empty target rules deny outbound calls; the fixed OpenAI origin has a public-address
+judge grant. Private/loopback access needs explicit per-origin CIDRs. Local Compose
+and native/browser test instructions grant their demo deliberately. Reject metadata,
+link-local, special-use and well-known transition addresses even with private grants.
+Validate every DNS answer at TCP connection time and dial only approved numeric
+addresses through HTTPCore's documented network backend. Preserve the original
+HTTP Host, TLS SNI and certificate verification; keep redirects/proxies disabled.
+
+Use one pool per HTTP request and recheck on new requests/retries. Pass current
+worker policy explicitly to both subprocess levels, separately from frozen jobs.
+Existing credential, ownership, lease/token fencing and per-case checkpoint
+contracts stay intact. Denials are sanitized non-retryable execution errors.
+Registration remains syntactic; permission is decided at the network boundary.
+No schema migration or remote policy-management endpoint is needed. HTTPCore 1.0.9
+becomes a direct import dependency, retaining the already locked version.
+
+**Reasoning:** Exact origins prevent arbitrary URL/port selection; checking all
+resolved addresses blocks mixed-answer private fallback. Numeric dialing removes
+a second hostname lookup without losing HTTPS hostname authentication. Current
+worker policy lets operators tighten queued execution after a restart without
+rewriting frozen credentials or trusting a client's proposed network permissions.
+
+**Tradeoffs:** Defaults now require explicit grants for existing native targets.
+Per-request pools sacrifice reuse, with no performance claim. DNS itself can block
+outside socket timeouts; queued subprocess deadlines still apply, while the legacy
+local synchronous route lacks a total deadline. Configuration is cached until restart.
+Grants apply installation-wide and to all paths on an origin. Docker demo CIDRs
+cover RFC1918 because its bridge address is dynamic, but only for that exact origin.
+Host/DB operators, trusted application code, resolver configuration and routing
+remain trusted. An allowed target could itself proxy requests; this policy cannot
+constrain that application's behavior. Cache hits make no new provider request.
+
+**Future implications:** Add infrastructure egress controls and consider per-project
+network entitlements. Continue resource/admission limits, human memberships,
+retention/audit and the full Phase 6 security review. Public exposure remains blocked.
+See [EGRESS_POLICY.md](EGRESS_POLICY.md) for setup, migration-free compatibility,
+implementation boundaries, primary design references and verification coverage.

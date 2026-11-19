@@ -11,6 +11,7 @@ from hashlib import sha256
 from pathlib import Path
 from random import SystemRandom
 
+from app.core.config import egress_environment
 from app.evaluators.contracts import AssertionOutcome, Outcome
 from app.judges import cache
 from app.judges.contracts import (
@@ -80,6 +81,7 @@ def call_provider(
         [sys.executable, "-m", "app.judges.provider_worker"],
         cwd=Path(__file__).resolve().parents[2],
         env={
+            **egress_environment(),
             "PATH": os.defpath,
             "PYTHONPATH": str(Path(__file__).resolve().parents[2]),
         },

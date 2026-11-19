@@ -243,5 +243,7 @@ intervals or statistically calibrated false-positive rates.
 Phase 5 now supplies [authorized synthetic security packs](SECURITY_PACKS.md).
 That work does not close the explicitly pending live Phase 4 calibration. Phase 6
 operator/project access, encrypted provider provisioning and admission audit exist;
-human memberships, full secret-access audit, retention and network policy remain
-unfinished.
+application HTTP destination policy also exists. Judge calls use separate operator
+rules and report `judge_destination_denied` when blocked; see [egress policy](EGRESS_POLICY.md).
+Human memberships, full secret-access audit, retention and infrastructure network
+controls remain unfinished.

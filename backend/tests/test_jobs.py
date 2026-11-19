@@ -232,7 +232,7 @@ def test_run_deadline_and_target_deletion(queue_factory):
         assert db.get(EvaluationJob, rid) is None
 
 
-def test_worker_real_process_and_timeout(session_factory):
+def test_worker_real_process_and_timeout(session_factory, allow_owned_http):
     class Handler(BaseHTTPRequestHandler):
         delay = 0
 
@@ -250,6 +250,7 @@ def test_worker_real_process_and_timeout(session_factory):
             pass
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    allow_owned_http(server.server_port)
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
@@ -399,7 +400,9 @@ def test_version_secret_rejected_and_idempotency_conflict(
     )
 
 
-def test_child_own_deadline_survives_without_supervisor(session_factory):
+def test_child_own_deadline_survives_without_supervisor(
+    session_factory, allow_owned_http
+):
     import json
     import os
     import signal
@@ -416,6 +419,7 @@ def test_child_own_deadline_survives_without_supervisor(session_factory):
             pass
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), SlowHandler)
+    rules = allow_owned_http(server.server_port)
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
@@ -436,7 +440,7 @@ def test_child_own_deadline_survives_without_supervisor(session_factory):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             cwd=Path(__file__).resolve().parents[1],
-            env={"PATH": os.defpath},
+            env={"PATH": os.defpath, "TARGET_EGRESS_RULES": rules},
             start_new_session=True,
             timeout=3,
         )

@@ -1,11 +1,14 @@
 """Environment-backed application settings."""
 
+import json
 from functools import lru_cache
 from typing import Literal
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL
+
+from app.network.policy import EgressPolicy
 
 
 class Settings(BaseSettings):
@@ -39,6 +42,10 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     target_request_timeout_seconds: float = Field(default=10.0, gt=0, le=60)
     target_max_response_bytes: int = Field(default=1_000_000, ge=1_024, le=10_000_000)
+    target_egress_rules: dict[str, list[str]] = Field(default_factory=dict)
+    judge_egress_rules: dict[str, list[str]] = Field(
+        default_factory=lambda: {"https://api.openai.com": []}
+    )
     sql_echo: bool = False
     secret_keyring_file: str = ".secrets/keyring.json"
     judge_enabled: bool = False
@@ -53,6 +60,12 @@ class Settings(BaseSettings):
         default=None, ge=0, le=10000, allow_inf_nan=False
     )
     judge_price_version: str = Field(default="unconfigured", max_length=100)
+
+    @field_validator("target_egress_rules", "judge_egress_rules")
+    @classmethod
+    def validate_egress_rules(cls, value: dict[str, list[str]]) -> dict[str, list[str]]:
+        EgressPolicy(value)
+        return value
 
     @model_validator(mode="after")
     def restrict_local_access(self):
@@ -100,3 +113,12 @@ def get_settings() -> Settings:
     """Return the process-wide immutable settings snapshot."""
 
     return Settings()
+
+
+def egress_environment() -> dict[str, str]:
+    """Pass current operator policy, never job-supplied grants, to isolated children."""
+    settings = get_settings()
+    return {
+        "TARGET_EGRESS_RULES": json.dumps(settings.target_egress_rules),
+        "JUDGE_EGRESS_RULES": json.dumps(settings.judge_egress_rules),
+    }

@@ -5,7 +5,10 @@ import json
 import httpx
 from pydantic import ValidationError
 
+from app.core.config import get_settings
 from app.judges.contracts import JudgeProvider, Judgment, ProviderResult
+from app.network.policy import EgressDenied
+from app.network.transport import EgressTransport
 
 
 class OpenAIProvider:
@@ -35,7 +38,10 @@ class OpenAIProvider:
         }
         try:
             with httpx.Client(
-                timeout=runtime["timeout"], trust_env=False, follow_redirects=False
+                transport=EgressTransport(get_settings().judge_egress_rules),
+                timeout=runtime["timeout"],
+                trust_env=False,
+                follow_redirects=False,
             ) as client:
                 with client.stream(
                     "POST",
@@ -87,6 +93,8 @@ class OpenAIProvider:
             except (ValidationError, ValueError, TypeError):
                 return ProviderResult(error="judge_invalid_output", **metadata)
             return ProviderResult(judgment=judgment, **metadata)
+        except EgressDenied:
+            return ProviderResult(error="judge_destination_denied")
         except (httpx.TimeoutException, httpx.NetworkError):
             return ProviderResult(error="judge_transport_error", retryable=True)
         except Exception:
