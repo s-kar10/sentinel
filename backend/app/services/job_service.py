@@ -2,12 +2,13 @@
 
 import time
 import uuid
+from collections import Counter
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from hashlib import sha256
 from random import SystemRandom
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.attacks.packs import AttackPack
@@ -15,8 +16,10 @@ from app.core.config import get_settings
 from app.judges.runtime import settings_snapshot
 from app.models import EvaluationRun, EvaluationStatus, TargetApplication
 from app.models.job import EvaluationJob, QueueControl
+from app.models.project import TargetProject
 from app.secrets.providers import record
 from app.services.errors import (
+    CapacityError,
     ConflictError,
     InvalidTargetConfigurationError,
     ResourceNotFoundError,
@@ -85,6 +88,35 @@ class JobService:
         )
         self.db.expire_all()
 
+    def _unfinished_runs(self, now: float, project_id: int | None = None) -> int:
+        """Count queued/leased work still able to run; call only under the lock."""
+
+        query = (
+            select(func.count())
+            .select_from(EvaluationJob)
+            .where(EvaluationJob.state != "done", EvaluationJob.deadline > now)
+        )
+        if project_id is not None:
+            query = query.join(
+                TargetProject, TargetProject.target_id == EvaluationJob.target_id
+            ).where(TargetProject.project_id == project_id)
+        return self.db.scalar(query) or 0
+
+    def _admit(self, project_id: int, now: float) -> None:
+        """Enforce queued-admission quotas inside the same serialized transaction
+        that inserts the job, so concurrent submissions cannot overshoot."""
+
+        project_limit = self.settings.queue_max_active_runs_per_project
+        if self._unfinished_runs(now, project_id) >= project_limit:
+            raise CapacityError(
+                f"This project already has {project_limit} unfinished queued "
+                "evaluations. Wait for one to finish or cancel one, then retry."
+            )
+        if self._unfinished_runs(now) >= self.settings.queue_max_active_runs:
+            raise CapacityError(
+                "The evaluation queue is at capacity. Retry after queued work finishes."
+            )
+
     def submit(
         self,
         target_id: int,
@@ -93,7 +125,9 @@ class JobService:
         idempotency_key: str | None = None,
         versions: dict | None = None,
     ) -> EvaluationRun:
-        self.evaluations._get_target(target_id)
+        project_id = self.evaluations._get_target(target_id).project_id
+        if project_id is None:
+            raise ResourceNotFoundError("Target application not found.")
         versions = {k: v for k, v in (versions or {}).items() if v is not None}
         request_digest = sha256(
             canonical(
@@ -126,6 +160,9 @@ class JobService:
                 self.db.commit()
                 return self.evaluations.get_run(run_id)
         try:
+            # Idempotent replays above return before quota checks: retrying an
+            # accepted request must not fail because the queue has since filled.
+            self._admit(project_id, time.time())
             run, target, attacks, definitions, _ = self.evaluations.prepare(
                 target_id, attack_pack=attack_pack
             )
@@ -281,7 +318,11 @@ class JobService:
         selected = None
         if len(active) < GLOBAL_CONCURRENCY and control.next_dispatch <= now:
             targets = {j.target_id for j in active}
-            selected = next(
+            busy = Counter(self._project_id(j) for j in active)
+            # Prefer projects holding the fewest leases, then FIFO. min() is stable,
+            # so a single project keeps the previous ordering and every slot remains
+            # usable (work-conserving) when only one project has eligible work.
+            selected = min(
                 (
                     j
                     for j in jobs
@@ -289,7 +330,8 @@ class JobService:
                     and j.available_at <= now
                     and j.target_id not in targets
                 ),
-                None,
+                key=lambda j: busy[self._project_id(j)],
+                default=None,
             )
         claim = None
         if selected:
@@ -320,6 +362,10 @@ class JobService:
             )
         self.db.commit()
         return claim
+
+    def _project_id(self, job) -> int | None:
+        target = self.db.get(TargetApplication, job.target_id)
+        return target.project_id if target else None
 
     @staticmethod
     def _backoff(attempt):

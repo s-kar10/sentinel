@@ -18,8 +18,10 @@ deferred by the user. Phase 5 is implemented and verified with controlled fixtur
 P6-1 operator access, P6-2 project-scoped resources/jobs/cache keys and P6-3
 encrypted target keys/private job payloads are implemented. P6-4 adds project provider
 credentials and lifecycle/admission audit. P6-5 adds application HTTP destination
-policy with connection-time DNS/IP enforcement. Human memberships, full credential-access
-audit, infrastructure network controls, resource limits and the full security review remain unfinished. Public deployment stays blocked.
+policy with connection-time DNS/IP enforcement. P6-6 adds pre-parse request-body limits,
+project/installation queued-admission quotas and lease-balanced dispatch. Human memberships,
+full credential-access audit, evidence retention, infrastructure network controls, per-project
+budgets and the full security review remain unfinished. Public deployment stays blocked.
 Phase 0's previously pending automated external verification is recorded below.
 Repository: [s-kar10/sentinel](https://github.com/s-kar10/sentinel), public source
 with `main` as the primary branch. Credentials, local databases and generated
@@ -883,11 +885,52 @@ children retain process deadlines, but the deprecated synchronous route does not
 Cached judgments make no new provider request. The complete security review and
 public-deployment gates remain open.
 
-**Next task within Phase 6:** bound request bodies and queued admission with
-project-aware resource limits, preserving atomic submissions and lease recovery.
-Human identity/OIDC memberships, infrastructure egress restrictions, comprehensive
-audit/retention and the full security review also remain open. Do not begin Phase 7
-or expose the service publicly.
+### P6-6 — Request-body and queued-admission limits (2026-11-19)
+
+- [x] Reject oversized request bodies before JSON parsing: declared `Content-Length`
+  without reading, streamed/chunked bodies at the crossing chunk; malformed lengths
+  are 400. Authentication still runs first in token mode.
+- [x] Cap unfinished, unexpired queued runs per project and per installation inside
+  the existing coordinator-locked submission transaction; refuse with 429 and no rows.
+  Idempotent replays of accepted requests bypass the check.
+- [x] Prefer the eligible case whose project holds the fewest active leases, keeping
+  FIFO within ties, single-project order, per-target exclusivity and lease recovery.
+- [x] Add bounded, consistency-checked settings forwarded by Compose; document setup,
+  semantics and limits; extend the Compose smoke to the real server's 413 path.
+
+**Implementation:** [RESOURCE_LIMITS.md](RESOURCE_LIMITS.md), ADR-022. Defaults:
+1 MiB bodies, 10 unfinished runs per project, 50 per installation. No schema change,
+dependency, frontend change or new route; existing error display shows 413/429 text.
+Expired runs stop counting before a worker visits them. Settings are installation-wide.
+
+**Verification:** Full Python checks passed **473 backend tests** with SQLite and a
+disposable PostgreSQL (no skips) and **34 demo tests**, including **18 new limit
+tests**: real FastAPI declared/streamed rejection, ASGI boundary/malformed lengths,
+token-mode ordering, project versus installation quotas, idempotent replay at the
+limit, cancellation/deadline release, ten concurrent submissions against a quota of
+three on both databases, the 429 contract and fair claim order. The six behavioral
+tests were confirmed to fail without the implementation. Lock, pip, Ruff and Compose
+configuration checks passed. **24 local and 5 authenticated Chromium workflows** and
+frontend lint/build passed locally **under Node.js 25**, because Node.js 22 was not
+installed on this machine; the Node 22 check is left to hosted CI. The full isolated
+Compose smoke passed, including the new declared-oversize 413 against the real Uvicorn
+server plus the existing demo/security-pack/egress-denial/recreation/outage/token/
+deletion paths, and removed its disposable resources.
+Developer databases, `.env` files and keys were not modified. Existing Starlette/AnyIO
+deprecation warnings remain visible. Live model calibration remains deferred; only
+desktop Chromium is verified. Hosted CI results belong to the PR.
+
+**Limits:** No request-rate, connection or slow-client limits in the application;
+quotas count runs, not cases or provider spend; no per-project overrides; the
+installation-full message confirms shared capacity is exhausted; fairness balances
+current leases, not history. Read paths, stored evidence and target/canary counts
+are unbounded. The local-only synchronous route has the body limit but no queue quota.
+
+**Next task within Phase 6:** evidence and record retention: bounded retention for
+runs/results, idempotency keys and terminal job metadata, with redaction checks on
+what is kept. Human identity/OIDC memberships, infrastructure egress restrictions,
+comprehensive secret-access audit and the full security review also remain open.
+Do not begin Phase 7 or expose the service publicly.
 
 ## Phase 7 — GitHub and CI/CD integration
 
